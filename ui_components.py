@@ -1,6 +1,7 @@
 """Shared drawing primitives and text helpers."""
 
 import math
+from functools import lru_cache
 import pygame
 
 import game_engine as engine
@@ -8,14 +9,41 @@ from game_engine import is_last_exercise_of_level, sorted_ids
 from missions import game_data
 from settings import BG, CYAN, DIM, GREEN, H, PANEL, W, WHITE
 
+_BACKGROUND_STATIC = None
+_CONTINENTS = (
+    [(29, 66), (41, 47), (64, 42), (79, 51), (75, 66), (87, 77),
+     (76, 91), (71, 108), (57, 118), (48, 101), (37, 91)],
+    [(75, 122), (91, 128), (101, 151), (97, 171), (105, 187),
+     (96, 207), (88, 194), (84, 170), (77, 151)],
+    [(157, 62), (177, 52), (194, 59), (207, 53), (225, 63),
+     (239, 58), (254, 71), (276, 69), (294, 80), (317, 75),
+     (339, 86), (365, 83), (385, 97), (377, 111), (354, 109),
+     (345, 122), (326, 115), (311, 128), (296, 120), (283, 135),
+     (264, 128), (248, 140), (229, 129), (214, 137), (198, 120),
+     (182, 123), (169, 105), (154, 98), (149, 80)],
+    [(194, 137), (210, 142), (220, 159), (215, 179), (205, 195),
+     (198, 180), (190, 160)],
+    [(331, 146), (349, 139), (363, 149), (376, 146), (391, 161),
+     (385, 179), (368, 183), (359, 198), (342, 192), (335, 176)],
+    [(378, 205), (388, 201), (394, 214), (385, 221)],
+)
+_NETWORK_NODES = ((55, 74), (89, 151), (181, 91), (222, 104), (293, 101), (358, 162))
+
+
+@lru_cache(maxsize=32)
+def _panel_fill(size, fill):
+    panel_surface = pygame.Surface(size, pygame.SRCALPHA)
+    pygame.draw.rect(panel_surface, (*fill, 232), panel_surface.get_rect())
+    return panel_surface
+
 # ======================================================================
 # DRAWING HELPERS
 # ======================================================================
 def init_fonts():
     """Monospace fonts so typed code lines up nicely."""
     names = "couriernew,courier,dejavusansmono,consolas,monospace"
-    engine.fonts["s"] = pygame.font.SysFont(names, 11, bold=True)
-    engine.fonts["m"] = pygame.font.SysFont(names, 13, bold=True)
+    engine.fonts["s"] = pygame.font.SysFont(names, 12, bold=True)
+    engine.fonts["m"] = pygame.font.SysFont(names, 14, bold=True)
     engine.fonts["l"] = pygame.font.SysFont(names, 20, bold=True)
 
 
@@ -57,44 +85,29 @@ def wrap_text(text, size, max_w):
 
 
 def draw_background(surf):
-    surf.fill(BG)
-    grid_color = (10, 23, 42)
-    map_fill = (5, 17, 34)
-    map_line = (10, 37, 63)
-    for x in range(0, W, 30):
-        pygame.draw.line(surf, grid_color, (x, 0), (x, H))
-    for y in range(0, H, 30):
-        pygame.draw.line(surf, grid_color, (0, y), (W, y))
-
-    continents = (
-        [(29, 66), (41, 47), (64, 42), (79, 51), (75, 66), (87, 77),
-         (76, 91), (71, 108), (57, 118), (48, 101), (37, 91)],
-        [(75, 122), (91, 128), (101, 151), (97, 171), (105, 187),
-         (96, 207), (88, 194), (84, 170), (77, 151)],
-        [(157, 62), (177, 52), (194, 59), (207, 53), (225, 63),
-         (239, 58), (254, 71), (276, 69), (294, 80), (317, 75),
-         (339, 86), (365, 83), (385, 97), (377, 111), (354, 109),
-         (345, 122), (326, 115), (311, 128), (296, 120), (283, 135),
-         (264, 128), (248, 140), (229, 129), (214, 137), (198, 120),
-         (182, 123), (169, 105), (154, 98), (149, 80)],
-        [(194, 137), (210, 142), (220, 159), (215, 179), (205, 195),
-         (198, 180), (190, 160)],
-        [(331, 146), (349, 139), (363, 149), (376, 146), (391, 161),
-         (385, 179), (368, 183), (359, 198), (342, 192), (335, 176)],
-        [(378, 205), (388, 201), (394, 214), (385, 221)],
-    )
-    for points in continents:
-        pygame.draw.polygon(surf, map_fill, points)
-        pygame.draw.polygon(surf, map_line, points, 1)
+    global _BACKGROUND_STATIC
+    if _BACKGROUND_STATIC is None:
+        background = pygame.Surface((W, H))
+        background.fill(BG)
+        grid_color = (10, 23, 42)
+        for x in range(0, W, 30):
+            pygame.draw.line(background, grid_color, (x, 0), (x, H))
+        for y in range(0, H, 30):
+            pygame.draw.line(background, grid_color, (0, y), (W, y))
+        for points in _CONTINENTS:
+            pygame.draw.polygon(background, (5, 17, 34), points)
+            pygame.draw.polygon(background, (10, 37, 63), points, 1)
+        for index, (x, y) in enumerate(_NETWORK_NODES):
+            target_x, target_y = _NETWORK_NODES[(index + 2) % len(_NETWORK_NODES)]
+            pygame.draw.line(background, (8, 37, 61), (x, y), (target_x, target_y), 1)
+        _BACKGROUND_STATIC = background
+    surf.blit(_BACKGROUND_STATIC, (0, 0))
 
     ticks = pygame.time.get_ticks()
     sweep_y = (ticks // 70) % H
     pygame.draw.line(surf, (8, 30, 50), (0, sweep_y), (W, sweep_y))
 
-    nodes = ((55, 74), (89, 151), (181, 91), (222, 104), (293, 101), (358, 162))
-    for index, (x, y) in enumerate(nodes):
-        target_x, target_y = nodes[(index + 2) % len(nodes)]
-        pygame.draw.line(surf, (8, 37, 61), (x, y), (target_x, target_y), 1)
+    for index, (x, y) in enumerate(_NETWORK_NODES):
         pulse = (math.sin(ticks / 450 + index) + 1) / 2
         node_color = (0, 60 + round(pulse * 45), 95 + round(pulse * 70))
         pygame.draw.circle(surf, node_color, (x, y), 2)
@@ -109,9 +122,7 @@ def draw_background(surf):
 
 
 def draw_panel(surf, rect, title, accent=CYAN, fill=PANEL):
-    panel_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
-    pygame.draw.rect(panel_surface, (*fill, 232), panel_surface.get_rect())
-    surf.blit(panel_surface, rect.topleft)
+    surf.blit(_panel_fill(rect.size, fill), rect.topleft)
     cut = 8
     corners = [
         (rect.left + cut, rect.top),

@@ -14,20 +14,37 @@ from game_engine import (
     sorted_ids,
 )
 from missions import game_data
+from missions import concept_library
 from settings import (
     CYAN,
-    COMPROMISED_BUTTON_RECT,
+    BOSS_HELPER_BUTTON_RECT,
+    BOSS_LIBRARY_BUTTON_RECT,
+    CONCEPT_BACK_BUTTON_RECT,
+    CONCEPT_LIST_RECT,
+    CONCEPT_TRY_BUTTON_RECT,
     DIM,
     GREEN,
     H,
+    HELPER_BUTTON_RECT,
     HINT_AFTER,
+    LIBRARY_BUTTON_RECT,
+    LEVEL_COMPLETE_BUTTON_RECT,
+    LOSS_RETRY_BUTTON_RECT,
+    LOSS_ROADMAP_BUTTON_RECT,
+    MISSION_BUTTON_RECT,
+    MISSION_LIBRARY_BUTTON_RECT,
+    MISSION_SETTINGS_BUTTON_RECT,
+    MASTER_BUTTON_RECT,
     MENU_BUTTON_RECT,
     RED,
-    SCALE,
+    RESUME_BUTTON_RECT,
+    ROADMAP_BUTTON_RECT,
+    TRAINING_BUTTON_RECT,
     WHITE,
     W,
     YELLOW,
     VICTORY_BUTTON_RECT,
+    get_viewport,
 )
 from ui_components import (
     draw_background,
@@ -44,6 +61,279 @@ from ui_components import (
 # ======================================================================
 # SCREENS
 # ======================================================================
+def draw_story(surf):
+    draw_panel(surf, pygame.Rect(28, 54, 394, 242), "GLOBAL NETWORK // DISTRESS SIGNAL", CYAN)
+    draw_text_center(surf, "CYBER DEFENSE", 91, CYAN, "l")
+    draw_text_center(surf, engine.STORY_LINES[engine.story_index], 157, WHITE, "m")
+    draw_text_center(surf, "A NEW AGENT. ONE LAST CHANCE.", 204, GREEN, "s")
+    draw_text_center(surf, "PRESS ANY KEY TO SKIP", 273, DIM, "s")
+
+
+def draw_mode_select(surf):
+    actions = engine.mode_select_actions()
+    engine.mode_selection %= len(actions)
+    draw_header(surf, "CHOOSE YOUR TRAINING", CYAN)
+    draw_panel(surf, pygame.Rect(25, 42, 400, 288), "SELECT A MODE")
+    training_card = pygame.Rect(35, 75, 182, 146)
+    mission_card = pygame.Rect(233, 75, 182, 146)
+    draw_panel(surf, training_card, "PRACTICE", GREEN, (4, 17, 30))
+    draw_panel(surf, mission_card, "CHALLENGE", CYAN, (4, 17, 30))
+    draw_button(
+        surf,
+        pygame.Rect(TRAINING_BUTTON_RECT),
+        "TRAINING",
+        GREEN,
+        engine.hovered_button == "training" or engine.mode_selection == actions.index("training"),
+    )
+    draw_button(
+        surf,
+        pygame.Rect(MISSION_BUTTON_RECT),
+        "PLAY MISSION",
+        CYAN,
+        engine.hovered_button == "mission" or engine.mode_selection == actions.index("mission"),
+    )
+    for center_x, line, y, color in (
+        (126, "Learn at your own pace.", 163, WHITE),
+        (126, "No timer. No fail.", 181, DIM),
+        (324, "Timed challenges.", 163, WHITE),
+        (324, "You can fail and resume.", 181, DIM),
+    ):
+        image = engine.fonts["s"].render(line, False, color)
+        surf.blit(image, (center_x - image.get_width() // 2, y))
+    if engine.has_saved_game():
+        draw_button(
+            surf,
+            pygame.Rect(RESUME_BUTTON_RECT),
+            "RESUME SAVED GAME",
+            YELLOW,
+            engine.hovered_button == "resume" or engine.mode_selection == actions.index("resume"),
+        )
+    master_unlocked = engine.all_levels_completed()
+    draw_button(
+        surf,
+        pygame.Rect(MASTER_BUTTON_RECT),
+        "MASTER MODE" if master_unlocked else "MASTER LOCKED",
+        YELLOW if master_unlocked else DIM,
+        engine.hovered_button == "master"
+        or (master_unlocked and engine.mode_selection == actions.index("master")),
+    )
+    draw_button(
+        surf,
+        pygame.Rect(LIBRARY_BUTTON_RECT),
+        "CONCEPT LIBRARY",
+        YELLOW,
+        engine.hovered_button == "library" or engine.mode_selection == actions.index("library"),
+    )
+    controls = "ARROWS SELECT // ENTER OPEN"
+    if engine.has_saved_game():
+        shortcuts = "1 TRAINING  2 MISSION  3 RESUME  4 LIBRARY  M MASTER"
+    else:
+        shortcuts = "1 TRAINING  2 MISSION  4 LIBRARY  M MASTER"
+    draw_text_center(surf, controls, 307, DIM, "s")
+    draw_text_center(surf, shortcuts, 322, DIM, "s")
+    if engine.save_error:
+        draw_text_center(surf, "SAVE ERROR // CHECK DISK ACCESS", 334, RED, "s")
+
+
+def draw_concept_library(surf):
+    concept_names = tuple(concept_library)
+    draw_header(surf, "CONCEPT LIBRARY", CYAN)
+    draw_panel(surf, pygame.Rect(9, 52, 136, 230), "TOPICS", CYAN)
+    for index, name in enumerate(concept_names):
+        row = pygame.Rect(
+            CONCEPT_LIST_RECT[0],
+            CONCEPT_LIST_RECT[1] + index * 27,
+            CONCEPT_LIST_RECT[2],
+            CONCEPT_LIST_RECT[3],
+        )
+        selected = index == engine.selected_concept
+        color = CYAN if selected else DIM
+        pygame.draw.rect(surf, (5, 23, 41) if selected else (4, 14, 30), row)
+        pygame.draw.rect(surf, color, row, 1)
+        draw_text(surf, name, row.x + 5, row.y + 6, color, "s")
+
+    name = concept_names[engine.selected_concept]
+    concept = concept_library[name]
+    panel = pygame.Rect(151, 52, 288, 230)
+    draw_panel(surf, panel, name.upper(), CYAN)
+    for index, line in enumerate(wrap_text(concept["explanation"], "s", 254)[:3]):
+        draw_text(surf, line, 164, 78 + index * 14, WHITE, "s")
+
+    example_panel = pygame.Rect(162, 126, 266, 55)
+    draw_panel(surf, example_panel, "EXAMPLE", GREEN, (3, 18, 27))
+    for index, code_line in enumerate(concept["example"].splitlines()[:2]):
+        draw_text(surf, code_line, 173, 148 + index * 13, GREEN, "s")
+
+    draw_text(surf, "TRY THIS:", 164, 191, YELLOW, "s")
+    for index, line in enumerate(wrap_text(concept["task"], "s", 254)[:3]):
+        draw_text(surf, line, 164, 207 + index * 13, WHITE, "s")
+
+    draw_button(
+        surf,
+        pygame.Rect(CONCEPT_BACK_BUTTON_RECT),
+        "BACK",
+        DIM,
+        engine.hovered_button == "concept_back",
+    )
+    draw_button(
+        surf,
+        pygame.Rect(CONCEPT_TRY_BUTTON_RECT),
+        "TRY IT",
+        GREEN,
+        engine.hovered_button == "concept_try",
+    )
+    draw_text_center(surf, "UP/DOWN SELECT // ENTER TRY", 332, DIM, "s")
+
+
+def draw_concept_practice(surf):
+    name = tuple(concept_library)[engine.selected_concept]
+    concept = concept_library[name]
+    draw_header(surf, "CONCEPT PRACTICE", CYAN)
+    draw_panel(surf, pygame.Rect(25, 44, 400, 240), name.upper(), CYAN)
+    draw_text_center(surf, "TRY IT YOURSELF", 78, YELLOW, "s")
+    for index, line in enumerate(wrap_text(concept["task"], "s", 340)[:3]):
+        draw_text_center(surf, line, 106 + index * 15, WHITE, "s")
+    draw_text(surf, "EXAMPLE // " + concept["example"].replace("\n", " "), 49, 158, GREEN, "s")
+    draw_text(surf, ">>>", 49, 197, CYAN, "m")
+    input_box = pygame.Rect(77, 191, 320, 27)
+    pygame.draw.rect(surf, (1, 7, 17), input_box)
+    pygame.draw.rect(surf, CYAN, input_box, 1)
+    draw_text(surf, engine.concept_typed, 84, 198, WHITE, "m")
+    if engine.concept_feedback:
+        color = GREEN if engine.concept_feedback.startswith("Correct!") else YELLOW
+        for index, line in enumerate(wrap_text(engine.concept_feedback, "s", 340)[:2]):
+            draw_text_center(surf, line, 235 + index * 14, color, "s")
+    else:
+        draw_text_center(surf, "TYPE YOUR ANSWER // PRESS ENTER TO CHECK", 238, DIM, "s")
+    draw_button(
+        surf,
+        pygame.Rect(CONCEPT_BACK_BUTTON_RECT),
+        "BACK TO LIBRARY",
+        DIM,
+        engine.hovered_button == "concept_back",
+    )
+    draw_button(
+        surf,
+        pygame.Rect(CONCEPT_TRY_BUTTON_RECT),
+        "CHECK ANSWER",
+        GREEN,
+        engine.hovered_button == "concept_try",
+    )
+
+
+def draw_roadmap(surf):
+    level_ids = sorted_ids(game_data[engine.current_preset])
+    selected_level = game_data[engine.current_preset][engine.roadmap_selection]
+    current_title = selected_level["title"]
+    draw_header(surf, "CAMPAIGN ROADMAP", CYAN)
+    draw_text_center(
+        surf,
+        f"LEVEL {engine.roadmap_selection}: {current_title.upper()}",
+        34,
+        YELLOW,
+        "s",
+    )
+    draw_panel(surf, pygame.Rect(10, 55, 430, 222), "4 TASKS + 1 BOSS")
+    for level_index, level_id in enumerate(level_ids):
+        level = game_data[engine.current_preset][level_id]
+        card = pygame.Rect(14 + level_index * 106, 75, 100, 185)
+        level_done = level_id in engine.completed_levels
+        is_unlocked = engine.is_level_unlocked(level_id)
+        is_selected = level_id == engine.roadmap_selection
+        is_played = level_id in engine.played_levels
+        accent = (
+            GREEN if level_done else
+            YELLOW if is_selected else
+            CYAN if is_unlocked else DIM
+        )
+        draw_panel(surf, card, f"LEVEL {level_id}", accent, (4, 14, 30))
+        if is_selected:
+            pygame.draw.rect(surf, accent, card.inflate(4, 4), 1)
+
+        def draw_card_text(text, y, color):
+            image = engine.fonts["s"].render(text, False, color)
+            surf.blit(image, (card.centerx - image.get_width() // 2, y))
+
+        title_lines = wrap_text(level["title"], "s", 80)[:3]
+        for line_index, line in enumerate(title_lines):
+            draw_card_text(line, 103 + line_index * 13, WHITE if is_unlocked else DIM)
+
+        dot_centers = [card.left + offset for offset in (10, 28, 46, 64, 86)]
+        pygame.draw.line(surf, (25, 55, 75), (dot_centers[0], 167), (dot_centers[-1], 167), 1)
+        exercise_ids = sorted_ids(level)
+        next_exercise = next(
+            (
+                exercise_id for exercise_id in exercise_ids
+                if (level_id, exercise_id) not in engine.completed_exercises
+            ),
+            exercise_ids[0],
+        )
+        for exercise_index, exercise_id in enumerate(exercise_ids):
+            done = level_done or (level_id, exercise_id) in engine.completed_exercises
+            current = is_selected and exercise_id == next_exercise
+            hovered = engine.hovered_button == f"task_{level_id}_{exercise_id}"
+            color = GREEN if done else (YELLOW if current or hovered else CYAN if is_unlocked else DIM)
+            radius = 5 if exercise_index == 4 else 3
+            pygame.draw.circle(surf, color, (dot_centers[exercise_index], 167), radius)
+            label = "B" if exercise_index == 4 else str(exercise_index + 1)
+            label_image = engine.fonts["s"].render(label, False, color)
+            surf.blit(label_image, (dot_centers[exercise_index] - label_image.get_width() // 2, 178))
+
+        status = (
+            "DONE" if level_done else
+            "PLAYED" if is_played else
+            "READY" if is_unlocked else "LOCKED"
+        )
+        status_color = GREEN if level_done else YELLOW if is_played or is_selected else CYAN if is_unlocked else DIM
+        draw_card_text(status, 209, status_color)
+        draw_card_text("4 TASKS + BOSS", 230, DIM)
+
+    draw_button(
+        surf,
+        pygame.Rect(ROADMAP_BUTTON_RECT),
+        (
+            f"START MASTER LEVEL {engine.roadmap_selection}"
+            if engine.master_replay
+            else f"START LEVEL {engine.roadmap_selection}"
+        ),
+        CYAN,
+        engine.hovered_button == "roadmap",
+    )
+    roadmap_help = engine.roadmap_notice or (
+        "ARROWS: LEVEL // CLICK OR 1-5: TASK // 5 = BOSS"
+        if not engine.master_replay
+        else "MASTER // ARROWS: LEVEL // CLICK OR 1-5: TASK"
+    )
+    help_color = YELLOW if engine.roadmap_notice else DIM
+    draw_text_center(surf, roadmap_help, 278, help_color, "s")
+    if engine.save_error:
+        draw_text(surf, "SAVE ERROR", 12, 335, RED, "s")
+
+
+def draw_level_complete(surf):
+    draw_header(surf, f"LEVEL {engine.current_level} // COMPLETE", GREEN)
+    draw_panel(surf, pygame.Rect(28, 43, 394, 248), "SECURITY LAYER RESTORED", GREEN)
+    draw_shield(surf, 207, 63)
+    draw_text_center(surf, "LEVEL COMPLETE!", 125, GREEN, "l")
+    draw_text_center(surf, f"SCORE {engine.score}  //  XP {engine.xp}", 159, WHITE, "m")
+    level_ids = sorted_ids(game_data[engine.current_preset])
+    if engine.current_level < level_ids[-1]:
+        next_level = engine.current_level + 1
+        next_title = game_data[engine.current_preset][next_level]["title"]
+        unlock_text = f"UNLOCKED: LEVEL {next_level} // {next_title.upper()}"
+    else:
+        unlock_text = "ALL FOUR LEVELS COMPLETE"
+    for index, line in enumerate(wrap_text(unlock_text, "s", 340)[:2]):
+        draw_text_center(surf, line, 209 + index * 14, CYAN, "s")
+    draw_button(
+        surf,
+        pygame.Rect(LEVEL_COMPLETE_BUTTON_RECT),
+        "CONTINUE TO ROADMAP",
+        GREEN,
+        engine.hovered_button == "level_complete",
+    )
+
+
 def draw_menu(surf):
     draw_panel(surf, pygame.Rect(15, 35, 420, 194), "GLOBAL NETWORK // SECURE ACCESS")
     draw_text_center(surf, "CYBER DEFENSE", 67, CYAN, "l")
@@ -91,144 +381,155 @@ def draw_lesson_overlay(surf):
 
     panel = pygame.Rect(24, 61, W - 48, 228)
     draw_panel(surf, panel, "MISSION LESSON // F1 TO CLOSE", CYAN, (3, 13, 28))
-    for index, line in enumerate(wrap_text(get_exercise()["lesson"], "s", W - 84)[:10]):
-        draw_text(surf, line, 39, 91 + index * 15, WHITE, "s")
-    draw_text(surf, "F1 // CLOSE BRIEFING", 39, 267, CYAN, "s")
+    exercise = get_exercise()
+    concept, has_mission, mission = exercise["lesson"].partition("MISSION:")
+    if not has_mission:
+        concept = exercise["lesson"]
+        mission = exercise.get("order_goal", exercise["ticket"])
+    mission = mission.split(" BOSS CHALLENGE:", 1)[0].strip()
+
+    draw_text(surf, "CONCEPT", 40, 91, YELLOW, "s")
+    for index, line in enumerate(wrap_text(concept.strip(), "s", W - 84)[:3]):
+        draw_text(surf, line, 40, 108 + index * 14, WHITE, "s")
+    draw_text(surf, "YOUR MISSION", 40, 158, YELLOW, "s")
+    for index, line in enumerate(wrap_text(mission, "s", W - 84)[:5]):
+        draw_text(surf, line, 40, 175 + index * 14, WHITE, "s")
+    draw_text(surf, "F1 // CLOSE", 40, 267, CYAN, "s")
 
 
 def draw_comms_box(surf):
     dialogue = engine.active_dialogue
-    speaker = dialogue["speaker"] if dialogue else "COMMS"
+    speaker = dialogue["speaker"] if dialogue else "HANDLER"
     accent = dialogue["color"] if dialogue else CYAN
-    panel = pygame.Rect(214, 77, 204, 58)
+    panel = pygame.Rect(208, 91, 230, 44)
     pygame.draw.rect(surf, (2, 12, 26), panel)
     pygame.draw.rect(surf, accent, panel, 1)
-    pygame.draw.line(surf, accent, (panel.left + 5, panel.top + 13),
-                     (panel.right - 5, panel.top + 13), 1)
-
-    portrait = pygame.Rect(220, 94, 27, 34)
-    pygame.draw.rect(surf, (4, 23, 39), portrait)
-    pygame.draw.rect(surf, accent, portrait, 1)
-    pygame.draw.rect(surf, accent, pygame.Rect(226, 99, 15, 16))
-    pygame.draw.rect(surf, (8, 15, 28), pygame.Rect(229, 103, 3, 3))
-    pygame.draw.rect(surf, (8, 15, 28), pygame.Rect(236, 103, 3, 3))
-    pygame.draw.rect(surf, WHITE, pygame.Rect(231, 110, 7, 2))
-    pygame.draw.rect(surf, accent, pygame.Rect(224, 116, 19, 9))
-    if speaker == "ROGUE_AI":
-        pygame.draw.line(surf, RED, (222, 101), (245, 101), 1)
-        pygame.draw.line(surf, RED, (222, 113), (245, 113), 1)
-
-    label = speaker if dialogue else "COMMS"
-    draw_text(surf, label, 253, 80, accent, "s")
-    if dialogue:
-        visible_text = dialogue["text"][:dialogue["visible"]]
-    else:
-        visible_text = "SECURE CHANNEL IDLE"
-    for index, line in enumerate(wrap_text(visible_text, "s", 157)[:2]):
-        draw_text(surf, line, 253, 96 + index * 13, WHITE, "s")
+    draw_text(surf, speaker, 214, 93, accent, "s")
+    visible_text = (
+        dialogue["text"][:dialogue["visible"]]
+        if dialogue else engine.last_comms_message
+    )
+    for index, line in enumerate(wrap_text(visible_text, "s", 218)[:2]):
+        draw_text(surf, line, 214, 106 + index * 12, WHITE, "s")
+    draw_button(
+        surf,
+        pygame.Rect(HELPER_BUTTON_RECT),
+        "HINT",
+        YELLOW,
+        engine.hovered_button == "helper",
+    )
+    draw_button(
+        surf,
+        pygame.Rect(MISSION_LIBRARY_BUTTON_RECT),
+        "LIBRARY",
+        CYAN,
+        engine.hovered_button == "mission_library",
+    )
 
 
 def draw_apply(surf):
     ex = get_exercise()
     mode = ex["mode"]
+    if mode == "BOSS":
+        draw_boss_apply(surf, ex)
+        return
     debug = mode == "DEBUG"
+    exercise_ids = sorted_ids(get_level())
+    task_number = exercise_ids.index(engine.current_exercise) + 1
+    level_total = len(exercise_ids)
+    level_done = sum(
+        (engine.current_level, exercise_id) in engine.completed_exercises
+        for exercise_id in exercise_ids
+    )
+    level_progress = level_done * 100 / level_total
+    progress_width = 198
+    takeover_width = 194
 
-    pygame.draw.rect(surf, (2, 8, 19), pygame.Rect(0, 0, W, 20))
-    pygame.draw.line(surf, (18, 68, 96), (0, 19), (W, 19), 1)
-    progress = engine.progress_display
-    progress_rect = pygame.Rect(8, 12, 204, 6)
-    takeover_rect = pygame.Rect(224, 12, 218, 6)
-    draw_text(surf, f"PROGRESS {round(progress)}%", 8, 2, CYAN, "s")
-    draw_text(surf, f"ROGUE AI TAKEOVER {engine.takeover_percent}%", 224, 2, RED, "s")
+    pygame.draw.rect(surf, (2, 8, 19), pygame.Rect(0, 0, W, 44))
+    pygame.draw.line(surf, (18, 68, 96), (0, 43), (W, 43), 1)
+    draw_text(surf, f"LEVEL {engine.current_level} · TASK {task_number}/{level_total}", 8, 2, CYAN, "s")
+    draw_text(surf, f"LEVEL PROGRESS {round(level_progress)}%", 151, 2, GREEN, "s")
+    if engine.play_mode == "TRAINING":
+        draw_text(surf, "TRAINING", 306, 2, GREEN, "s")
+    else:
+        draw_text(surf, f"TAKEOVER {engine.takeover_percent}%", 286, 2, RED, "s")
+
+    progress_rect = pygame.Rect(8, 17, progress_width, 6)
     pygame.draw.rect(surf, (7, 27, 42), progress_rect)
     pygame.draw.rect(
         surf,
-        CYAN,
-        pygame.Rect(progress_rect.x, progress_rect.y, round(progress_rect.width * progress / 100), progress_rect.height),
+        GREEN,
+        pygame.Rect(progress_rect.x, progress_rect.y, round(progress_rect.width * level_progress / 100), progress_rect.height),
     )
-    pygame.draw.rect(surf, CYAN, progress_rect, 1)
-    pygame.draw.rect(surf, (54, 13, 26), takeover_rect)
-    pygame.draw.rect(
-        surf,
-        RED,
-        pygame.Rect(
-            takeover_rect.x,
-            takeover_rect.y,
-            round(takeover_rect.width * engine.takeover_percent / 100),
-            takeover_rect.height,
-        ),
-    )
-    pygame.draw.rect(surf, RED, takeover_rect, 1)
+    pygame.draw.rect(surf, GREEN, progress_rect, 1)
+    if engine.play_mode == "MISSION":
+        takeover_rect = pygame.Rect(220, 17, takeover_width, 6)
+        pygame.draw.rect(surf, (54, 13, 26), takeover_rect)
+        pygame.draw.rect(
+            surf,
+            RED,
+            pygame.Rect(
+                takeover_rect.x,
+                takeover_rect.y,
+                round(takeover_rect.width * engine.takeover_percent / 100),
+                takeover_rect.height,
+            ),
+        )
+        pygame.draw.rect(surf, RED, takeover_rect, 1)
 
-    ticket_id = engine.current_preset * 1000 + engine.current_level * 10 + engine.current_exercise
-    priority = ex["priority"]
-    ticket_prefix = f"TICKET #{ticket_id} [{priority}] "
-    ticket_font = engine.fonts["s"]
-    ticket_text = ex["ticket"]
-    available_width = W - 24 - ticket_font.size(ticket_prefix)[0]
-    while ticket_text and ticket_font.size(ticket_text + "...")[0] > available_width:
-        ticket_text = ticket_text[:-1]
-    if ticket_text != ex["ticket"]:
-        ticket_text = ticket_text.rstrip(" ,.!") + "..."
-    priority_colors = {
-        "LOW": GREEN,
-        "MED": CYAN,
-        "HIGH": YELLOW,
-        "CRITICAL": RED,
-    }
-    pygame.draw.rect(surf, (4, 15, 29), pygame.Rect(8, 24, W - 16, 20))
-    draw_text(surf, ticket_prefix, 12, 29, priority_colors[priority], "s")
-    draw_text(surf, ticket_text, 12 + ticket_font.size(ticket_prefix)[0], 29, WHITE, "s")
+    draw_settings_icon(surf)
+    if engine.takeover_tooltip_timer > 0:
+        tooltip = pygame.Rect(218, 24, 220, 27)
+        pygame.draw.rect(surf, (9, 25, 42), tooltip)
+        pygame.draw.rect(surf, YELLOW, tooltip, 1)
+        for index, line in enumerate(wrap_text("Wrong answers raise it. At 100% you fail.", "s", 208)):
+            draw_text(surf, line, 224, 26 + index * 11, YELLOW, "s")
 
-    terminal_panel = pygame.Rect(12, 50, W - 24, 290)
+    ticket_panel = pygame.Rect(8, 52, W - 16, 14)
+    pygame.draw.rect(surf, (4, 15, 29), ticket_panel)
+    pygame.draw.rect(surf, (18, 68, 96), ticket_panel, 1)
+    draw_text_center(surf, ex["ticket"], 53, WHITE, "s")
+
+    terminal_panel = pygame.Rect(12, 67, W - 24, 273)
     draw_panel(surf, terminal_panel, "", CYAN, (3, 11, 24))
-    title_bar = pygame.Rect(13, 51, W - 26, 21)
+    title_bar = pygame.Rect(13, 68, W - 26, 21)
     pygame.draw.rect(surf, (5, 23, 41), title_bar)
     pygame.draw.line(surf, (24, 93, 128), (title_bar.left, title_bar.bottom), (title_bar.right, title_bar.bottom), 1)
-    draw_text(surf, "SECURE_CONSOLE v1.0", 22, 56, CYAN, "s")
+    draw_text(surf, "SECURE_CONSOLE // PATCH", 22, 73, CYAN, "s")
     status_text = f"XP {engine.xp} // STREAK x{engine.streak}"
-    status_x = title_bar.right - 8 - ticket_font.size(status_text)[0]
-    draw_text(surf, status_text, status_x, 56, DIM, "s")
+    status_x = title_bar.right - 8 - engine.fonts["s"].size(status_text)[0]
+    draw_text(surf, status_text, status_x, 73, DIM, "s")
 
-    draw_text(surf, "mainframe.py // CONTEXT", 30, 78, CYAN, "s")
-    if mode == "SPEED":
-        time_left = max(0, engine.speed_timer_frames) / 60
-        context_lines = [
-            "041  RESPONSE WINDOW // 20 SEC",
-            "042  TYPE THE ANSWER BELOW",
-            f"043  TIME REMAINING // {time_left:04.1f}s",
-        ]
-    elif mode == "BOSS":
-        context_lines = [
-            "041  BOSS FIREWALL // MULTI-CONCEPT PATCH",
-            "042      # arrange each defense step",
-            "043  " + ex["ticket"],
-        ]
+    context_panel = pygame.Rect(18, 92, 184, 42)
+    draw_panel(surf, context_panel, "mainframe.py // CODE", CYAN, (2, 9, 20))
+    if debug:
+        context_lines = [ex["broken_code"]]
     else:
-        context_lines = [
-            "041  def patch():",
-            "042      # policy",
-            f"043  {ex['broken_code'] if debug else '# enter patch here'}",
-        ]
-    context_font = engine.fonts["m"]
-    for index, line in enumerate(context_lines):
-        original_line = line
-        while line and context_font.size(line + "...")[0] > 170:
-            line = line[:-1]
-        if line != original_line:
-            line = line.rstrip() + "..."
-        draw_text(surf, line, 30, 93 + index * 13, RED if debug and index == 2 else DIM, "m")
+        context_lines = {
+            1: ["security = 10", "codename = 'cipher'"],
+            2: ["attempts = 0", "if attempts > 3:"],
+            3: ["ports = [80, 443]", "ports.append(8080)"],
+            4: ["def secure_system():", "    return True"],
+        }[engine.current_level]
+    for index, line in enumerate(context_lines[:2]):
+        draw_text(surf, line, 24, 110 + index * 12, RED if debug else GREEN, "s")
     draw_comms_box(surf)
 
-    log_panel = pygame.Rect(22, 137, W - 44, 132)
+    log_panel = pygame.Rect(22, 138, W - 44, 127)
     pygame.draw.rect(surf, (1, 7, 17), log_panel)
     pygame.draw.rect(surf, (19, 76, 105), log_panel, 1)
-    if mode == "SPEED":
-        draw_text(surf, "RAPID QUESTION //", 30, 147, CYAN, "s")
+    if mode == "ORDER":
+        goal = ex["order_goal"]
+        draw_text(surf, goal, 29, 143, YELLOW, "s")
+        for index, line in enumerate(engine.order_items):
+            marker = ">" if index == engine.order_cursor else " "
+            color = YELLOW if index == engine.order_cursor else WHITE
+            draw_text(surf, f"{marker} {index + 1}. {line}", 30, 161 + index * 19, color, "s")
+    elif mode == "SPEED":
         for index, line in enumerate(wrap_text(ex["question"], "s", W - 64)[:3]):
-            draw_text(surf, line, 30, 164 + index * 16, WHITE, "s")
+            draw_text(surf, line, 30, 148 + index * 15, WHITE, "s")
         time_left = max(0, engine.speed_timer_frames) / 60
-        timer_bar = pygame.Rect(30, 224, W - 60, 8)
+        timer_bar = pygame.Rect(30, 218, W - 60, 8)
         pygame.draw.rect(surf, (46, 13, 24), timer_bar)
         pygame.draw.rect(
             surf,
@@ -240,35 +541,20 @@ def draw_apply(surf):
         for index, option in enumerate(ex["options"]):
             marker = ">" if index == engine.choice_index else " "
             color = CYAN if index == engine.choice_index else WHITE
-            draw_text(surf, f"{marker} {index + 1}. {option}", 30, 148 + index * 27, color, "s")
-    elif mode in ("ORDER", "BOSS"):
-        for index, line in enumerate(engine.order_items):
-            marker = ">" if index == engine.order_cursor else " "
-            color = YELLOW if index == engine.order_cursor else WHITE
-            draw_text(surf, f"{marker} {index + 1}. {line}", 30, 148 + index * 27, color, "s")
+            draw_text(surf, f"{marker} {index + 1}. {option}", 30, 148 + index * 26, color, "s")
     else:
-        for index, line in enumerate(engine.console_log[-8:]):
+        for index, line in enumerate(engine.console_log[-7:]):
             visible_text = line["text"][:line["visible"]]
-            draw_text(surf, visible_text, 30, 143 + index * 14, line["color"], "s")
+            draw_text(surf, visible_text, 30, 143 + index * 15, line["color"], "s")
 
-    if engine.attempts >= HINT_AFTER:
+    if engine.attempts >= HINT_AFTER and engine.feedback_timer <= 0:
         hint = "HINT // " + ex["hint"]
-        while hint and ticket_font.size(hint + "...")[0] > W - 64:
-            hint = hint[:-1]
-        if hint != "HINT // " + ex["hint"]:
-            hint = hint.rstrip(" ,.!") + "..."
-        draw_text(surf, hint, 30, 271, YELLOW, "s")
+        for index, line in enumerate(wrap_text(hint, "s", W - 64)[:2]):
+            draw_text(surf, line, 30, 268 + index * 12, YELLOW, "s")
+    if engine.feedback_timer > 0:
+        draw_text(surf, engine.msg, 30, 276, engine.msg_color, "s")
 
-    if mode == "CHOOSE":
-        input_label = "UP/DOWN: SELECT  //  ENTER: CONFIRM"
-    elif mode in ("ORDER", "BOSS"):
-        input_label = "UP/DOWN: SELECT  //  LEFT/RIGHT: MOVE"
-    elif mode == "SPEED":
-        input_label = f"RAPID RESPONSE // {max(0, engine.speed_timer_frames) / 60:04.1f}s"
-    else:
-        input_label = "INPUT // PYTHON PATCH"
-    draw_text(surf, input_label, 30, 282, DIM, "s")
-    console = pygame.Rect(22, 296, W - 44, 30)
+    console = pygame.Rect(22, 293, W - 44, 31)
     pygame.draw.rect(surf, (1, 7, 17), console)
     pygame.draw.rect(surf, (22, 91, 124), console, 1)
     if mode in ("WRITE", "DEBUG", "SPEED"):
@@ -288,20 +574,131 @@ def draw_apply(surf):
         after_image = input_font.render(after_cursor, False, GREEN)
         surf.blit(after_image, (cursor_x + cursor_gap, input_y))
     else:
-        draw_text(surf, "ENTER: SUBMIT", 31, 303, GREEN, "m")
+        draw_text(surf, "SELECTION READY", 31, 302, GREEN, "s")
 
-    draw_text(
-        surf,
-        "ENTER // F1 // CTRL+C/V // CTRL+/- VOL // CTRL+M/R",
-        30,
-        330,
-        DIM,
-        "s",
-    )
+    controls = {
+        "WRITE": "[Enter] Submit   [F1] Lesson   [Hint]",
+        "DEBUG": "[Enter] Submit   [F1] Lesson   [Hint]",
+        "SPEED": "[Enter] Submit   [F1] Lesson   [Hint]",
+        "CHOOSE": "[Up/Down] Select   [Enter] Submit   [F1] Lesson",
+        "ORDER": "[Up/Down] Pick line   [Left/Right] Move   [Enter] Submit",
+    }[mode]
+    draw_text(surf, controls, 12, 328, WHITE, "s")
     if engine.lesson_open:
         draw_lesson_overlay(surf)
+    if engine.settings_open:
+        draw_settings_overlay(surf)
     if engine.flash > 0 and engine.flash_color == GREEN and not engine.reduce_effects:
         pygame.draw.rect(surf, GREEN, terminal_panel, 2)
+
+
+def draw_boss_apply(surf, exercise):
+    exercise_count = len(exercise["correct_script"])
+    line_number = min(engine.boss_line_index + 1, exercise_count)
+    pygame.draw.rect(surf, (18, 3, 12), pygame.Rect(0, 0, W, 27))
+    pygame.draw.line(surf, RED, (0, 26), (W, 26), 1)
+    draw_text(surf, f"BOSS FIGHT // LEVEL {engine.current_level}", 8, 4, RED, "m")
+    right_status = (
+        f"LINE {line_number}/{exercise_count}"
+        if engine.play_mode == "TRAINING"
+        else f"TAKEOVER {engine.takeover_percent}%"
+    )
+    status_x = 405 - engine.fonts["s"].size(right_status)[0]
+    draw_text(surf, right_status, status_x, 7, YELLOW, "s")
+
+    lesson_panel = pygame.Rect(8, 30, W - 16, 72)
+    draw_panel(surf, lesson_panel, "MISSION // OBJECTIVE", RED, (4, 10, 23))
+    for index, line in enumerate(wrap_text(exercise["lesson"], "s", W - 40)[:4]):
+        draw_text(surf, line, 17, 51 + index * 12, WHITE, "s")
+
+    evidence_panel = pygame.Rect(8, 108, 156, 210)
+    draw_panel(surf, evidence_panel, "", YELLOW, (3, 11, 24))
+    draw_text(surf, "EVIDENCE // SCRAMBLED", 15, 112, YELLOW, "s")
+    if engine.solution_revealed:
+        draw_text(surf, "SOLUTION", 15, 128, GREEN, "s")
+        y = 145
+        for line in exercise["correct_script"]:
+            for wrapped_line in wrap_text(line, "s", 122):
+                draw_text(surf, wrapped_line, 15, y, GREEN, "s")
+                y += 12
+    else:
+        y = 130
+        for block_index, block in enumerate(exercise["scrambled_blocks"], 1):
+            lines = wrap_text(block, "s", 122)
+            draw_text(surf, f"{block_index}.", 15, y, YELLOW, "s")
+            for line_index, line in enumerate(lines):
+                draw_text(surf, line, 34, y + line_index * 12, WHITE, "s")
+            y += max(16, len(lines) * 12 + 4)
+
+    terminal_panel = pygame.Rect(170, 108, 272, 210)
+    draw_panel(surf, terminal_panel, "mainframe.py // LIVE SCRIPT", CYAN, (1, 7, 17))
+    for index, line in enumerate(engine.boss_typed_lines):
+        draw_text(surf, line, 181, 132 + index * 22, GREEN, "s")
+
+    input_panel = pygame.Rect(178, 266, 256, 29)
+    pygame.draw.rect(surf, (3, 16, 27), input_panel)
+    pygame.draw.rect(surf, CYAN, input_panel, 1)
+    draw_text(surf, ">>>", 185, 274, CYAN, "s")
+    input_x, input_y = 210, 274
+    draw_text(surf, engine.boss_player_input, input_x, input_y, WHITE, "s")
+    if (pygame.time.get_ticks() // 500) % 2 == 0:
+        cursor_x = input_x + engine.fonts["s"].size(engine.boss_player_input)[0]
+        pygame.draw.rect(surf, CYAN, pygame.Rect(cursor_x, input_y + 1, 6, 11))
+
+    if engine.feedback_timer > 0:
+        draw_text(surf, engine.msg, 181, 301, engine.msg_color, "s")
+    elif engine.boss_line_index < exercise_count:
+        draw_text(surf, "TYPE THIS LINE, THEN PRESS ENTER", 181, 301, DIM, "s")
+
+    draw_settings_icon(surf)
+    draw_button(
+        surf,
+        pygame.Rect(BOSS_HELPER_BUTTON_RECT),
+        "HINT",
+        YELLOW,
+        engine.hovered_button == "boss_helper",
+    )
+    draw_button(
+        surf,
+        pygame.Rect(BOSS_LIBRARY_BUTTON_RECT),
+        "LIBRARY",
+        CYAN,
+        engine.hovered_button == "boss_library",
+    )
+    draw_text(surf, "[Type line]  [Enter] Submit  [F1] Lesson", 158, 329, WHITE, "s")
+    if engine.lesson_open:
+        draw_lesson_overlay(surf)
+    if engine.settings_open:
+        draw_settings_overlay(surf)
+    if engine.flash > 0 and engine.flash_color == GREEN and not engine.reduce_effects:
+        pygame.draw.rect(surf, GREEN, terminal_panel, 2)
+
+
+def draw_settings_icon(surf):
+    rect = pygame.Rect(MISSION_SETTINGS_BUTTON_RECT)
+    pygame.draw.rect(surf, (5, 23, 41), rect)
+    pygame.draw.rect(surf, CYAN if engine.settings_open else DIM, rect, 1)
+    center = rect.center
+    pygame.draw.circle(surf, CYAN if engine.settings_open else WHITE, center, 5, 1)
+    pygame.draw.circle(surf, CYAN if engine.settings_open else WHITE, center, 1)
+    for angle in range(0, 360, 90):
+        direction = pygame.Vector2(1, 0).rotate(angle)
+        start = (round(center[0] + direction.x * 6), round(center[1] + direction.y * 6))
+        end = (round(center[0] + direction.x * 8), round(center[1] + direction.y * 8))
+        pygame.draw.line(surf, CYAN if engine.settings_open else WHITE, start, end, 1)
+
+
+def draw_settings_overlay(surf):
+    shade = pygame.Surface((W, H), pygame.SRCALPHA)
+    shade.fill((0, 3, 12, 205))
+    surf.blit(shade, (0, 0))
+    panel = pygame.Rect(86, 108, 278, 132)
+    draw_panel(surf, panel, "SETTINGS // F3 OR ESC TO CLOSE", CYAN)
+    draw_text(surf, "M // MUTE AUDIO", 108, 145, WHITE, "s")
+    draw_text(surf, f"R // REDUCED EFFECTS: {'ON' if engine.reduce_effects else 'OFF'}", 108, 165, WHITE, "s")
+    volume = round(engine.sound_manager.volume * 100) if engine.sound_manager else 0
+    draw_text(surf, f"+ / - // VOLUME {volume}%", 108, 185, WHITE, "s")
+    draw_text(surf, "Press M, R, +, or - here", 108, 214, YELLOW, "s")
 
 
 def draw_win(surf):
@@ -329,8 +726,10 @@ def draw_win(surf):
 
     box = pygame.Rect(52, 181, 346, 50)
     draw_panel(surf, box, "PATCH ACCEPTED // YOUR CODE", GREEN, (5, 20, 20))
-    if ex["mode"] in ("ORDER", "BOSS"):
+    if ex["mode"] == "ORDER":
         draw_text(surf, "SECURITY ORDER VERIFIED", 65, 209, GREEN, "s")
+    elif ex["mode"] == "BOSS":
+        draw_text(surf, "FILL-IN PATCH VERIFIED", 65, 209, GREEN, "s")
     else:
         draw_text(surf, ex["expected"], 65, 209, GREEN, "s")
 
@@ -397,23 +796,23 @@ def draw_victory(surf):
 
 
 def draw_compromised(surf):
-    draw_panel(surf, pygame.Rect(24, 42, 402, 264), "ROGUE AI // CONTROL LOST", RED, (24, 5, 16))
-    title_font = pygame.font.SysFont(
-        "couriernew,courier,dejavusansmono,consolas,monospace",
-        29,
-        bold=True,
-    )
-    title = title_font.render("SYSTEM COMPROMISED", False, RED)
-    surf.blit(title, ((W - title.get_width()) // 2, 102))
-    draw_text_center(surf, "Rogue AI takeover reached 100%.", 151, WHITE, "s")
-    draw_text_center(surf, f"Rebooting restarts LEVEL {engine.current_level}.", 171, CYAN, "s")
+    draw_panel(surf, pygame.Rect(24, 42, 402, 264), "MISSION FAILED", RED, (24, 5, 16))
+    draw_text_center(surf, "Rogue AI takeover reached 100%.", 128, WHITE, "s")
     draw_button(
         surf,
-        pygame.Rect(COMPROMISED_BUTTON_RECT),
-        "REBOOT CURRENT LEVEL",
+        pygame.Rect(LOSS_RETRY_BUTTON_RECT),
+        "RETRY THIS LEVEL",
         RED,
+        engine.hovered_button == "loss_retry",
     )
-    draw_text_center(surf, "PRESS ENTER TO REDEPLOY", 307, DIM, "s")
+    draw_button(
+        surf,
+        pygame.Rect(LOSS_ROADMAP_BUTTON_RECT),
+        "BACK TO ROADMAP",
+        CYAN,
+        engine.hovered_button == "loss_roadmap",
+    )
+    draw_text_center(surf, "1 RETRY  //  2 ROADMAP", 307, DIM, "s")
 
 
 def draw_progress_notifications(surf):
@@ -422,6 +821,7 @@ def draw_progress_notifications(surf):
         banner_y = {
             "APPLY": 137,
             "WIN": 158,
+            "LEVEL_COMPLETE": 158,
             "GAMEOVER_WIN": 200,
         }[engine.state]
         banner = pygame.Rect((W - width) // 2, banner_y, width, 19)
@@ -435,7 +835,19 @@ def draw_progress_notifications(surf):
 
 def draw_frame(canvas):
     draw_background(canvas)
-    if engine.state == "MENU":
+    if engine.state == "STORY":
+        draw_story(canvas)
+    elif engine.state == "MODE_SELECT":
+        draw_mode_select(canvas)
+    elif engine.state == "CONCEPT_LIBRARY":
+        draw_concept_library(canvas)
+    elif engine.state == "CONCEPT_TRY":
+        draw_concept_practice(canvas)
+    elif engine.state == "ROADMAP":
+        draw_roadmap(canvas)
+    elif engine.state == "LEVEL_COMPLETE":
+        draw_level_complete(canvas)
+    elif engine.state == "MENU":
         draw_menu(canvas)
     elif engine.state == "INTRO":
         draw_intro(canvas)
@@ -450,7 +862,7 @@ def draw_frame(canvas):
     elif engine.state == "GAMEOVER_LOSS":
         draw_compromised(canvas)
 
-    if engine.state in ("APPLY", "WIN", "GAMEOVER_WIN"):
+    if engine.state in ("APPLY", "WIN", "LEVEL_COMPLETE", "GAMEOVER_WIN"):
         draw_progress_notifications(canvas)
 
     for p in engine.particles:
@@ -495,10 +907,15 @@ def draw_frame(canvas):
 
 
 def present(screen, canvas):
-    s = 0 if engine.reduce_effects else int(engine.shake)
-    ox = random.randint(-s, s) if s > 0 else 0
-    oy = random.randint(-s, s) if s > 0 else 0
-    scaled = pygame.transform.scale(canvas, (W * SCALE, H * SCALE))   # retro pixel scaling
+    shake = 0 if engine.reduce_effects else int(engine.shake)
+    offset_x = random.randint(-shake, shake) if shake > 0 else 0
+    offset_y = random.randint(-shake, shake) if shake > 0 else 0
+    left, top, width, height = get_viewport(screen.get_size())
+    scaled = pygame.transform.scale(canvas, (width, height))
     screen.fill((0, 0, 0))
-    screen.blit(scaled, (ox * SCALE, oy * SCALE))
+    scale = min(screen.get_width() / W, screen.get_height() / H)
+    screen.blit(
+        scaled,
+        (round(left + offset_x * scale), round(top + offset_y * scale)),
+    )
     pygame.display.flip()

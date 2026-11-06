@@ -19,7 +19,8 @@ def main():
         engine.type_sound = engine.sound_manager.sounds["key"]
 
     pygame.display.set_caption("CYBER DEFENSE: Patch the System")
-    screen = pygame.display.set_mode((W * SCALE, H * SCALE))
+    fullscreen = True
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     canvas = pygame.Surface((W, H))
     clock = pygame.time.Clock()
     pygame.key.set_repeat(400, 40)
@@ -30,6 +31,16 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif (
+                event.type == pygame.KEYDOWN
+                and event.key == pygame.K_F11
+                and not getattr(event, "repeat", False)
+            ):
+                fullscreen = not fullscreen
+                if fullscreen:
+                    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+                else:
+                    screen = pygame.display.set_mode((W * SCALE, H * SCALE))
             else:
                 handle_event(event)
 
