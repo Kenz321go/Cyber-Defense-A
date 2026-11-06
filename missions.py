@@ -4,6 +4,7 @@
 # MASTER DATA
 # ----------------------------------------------------------------------
 # game_data[preset][level][exercise]
+#   - Each level has four normal tasks and a fifth boss task.
 #   - Level dicts hold a "title" (string) plus integer keys 1..5 (exercises).
 #   - Exercise dict keys:
 #       "mode"        : WRITE, DEBUG, CHOOSE, ORDER, SPEED, or BOSS
@@ -12,6 +13,8 @@
 #       "lesson"      : full teaching text for the F1 briefing
 #       "broken_code" : the buggy line for DEBUG mode, or None for WRITE mode
 #       "expected"    : the single line of Python the player must type
+#       "correct_script": ordered full script lines for Boss challenges
+#       "scrambled_blocks": reordered code clues for the Boss reconstruction
 #       "hint"        : shown in yellow after HINT_AFTER wrong attempts
 #       "output"      : simulated console output; player code is never executed
 # ======================================================================
@@ -34,16 +37,15 @@ game_data = {
                 "expected": "security = 10",
                 "hint": "name = value   (one = sign, spaces around it)",
                 "output": ["> running patch...", "> security = 10 OK", "> firewall restored"]},
-            2: {"mode": "DEBUG",
-                "ticket": "Repair agent name assignment",
+            2: {"mode": "ORDER",
+                "ticket": "Restore authorized admin access",
                 "priority": "MED",
-                "lesson": "= ASSIGNS a value, but == COMPARES two values. "
-                          "MISSION: A bug stops the agent name from being saved! "
-                          "Fix the line so it STORES 'ghost' in agent_name.",
-                "broken_code": "agent_name == 'ghost'",
-                "expected": "agent_name = 'ghost'",
-                "hint": "Storing a value needs a SINGLE equals sign.",
-                "output": ["> running patch...", "> agent_name saved OK", "> identity verified"]},
+                "lesson": "Assign the agent name before checking it. "
+                          "MISSION: Put the admin access statements in the correct order.",
+                "broken_code": None,
+                "expected": "agent = 'admin'",
+                "hint": "Set agent first, compare with ==, then grant access.",
+                "output": ["> running patch...", "> admin access checked", "> access granted"]},
             3: {"mode": "WRITE",
                 "ticket": "Set system lock status",
                 "priority": "HIGH",
@@ -64,31 +66,47 @@ game_data = {
                 "expected": "speed = 1.5",
                 "hint": "Remove the quotes around 1.5 so it is a number.",
                 "output": ["> running patch...", "> speed = 1.5 OK", "> telemetry restored"]},
-            5: {"mode": "WRITE",
-                "ticket": "Assign agent codename",
-                "priority": "LOW",
-                "lesson": "A str stores text and needs quotes around it: 'like this'. "
-                          "MISSION: Assign a codename. Create a variable called codename "
-                          "and store the text 'cipher' in it.",
+            5: {"mode": "BOSS",
+                "ticket": "Configure admin access",
+                "priority": "CRITICAL",
+                "lesson": "Write a script to register the agent, set their access level, and check if they are an admin.",
                 "broken_code": None,
-                "expected": "codename = 'cipher'",
-                "hint": "codename = 'cipher'   (text goes inside quotes)",
-                "output": ["> running patch...", "> codename registered OK", "> agent authenticated"]},
+                "scrambled_blocks": [
+                    "if is_admin == True:",
+                    "access_level = 5",
+                    "print('Access Granted')",
+                    "agent_name = 'ghost'",
+                    "is_admin = True",
+                ],
+                "correct_script": [
+                    "agent_name = 'ghost'",
+                    "access_level = 5",
+                    "is_admin = True",
+                    "if is_admin == True:",
+                    "print('Access Granted')",
+                ],
+                "hint": "Register the agent before setting and checking access.",
+                "output": ["> running patch...", "> admin access configured", "> agent authenticated"]},
         },
 
         # ---------------- LEVEL 2 ----------------
         2: {
             "title": "Selections & Operators",
-            1: {"mode": "DEBUG",
+            1: {"mode": "CHOOSE",
                 "ticket": "Repair firewall comparison",
                 "priority": "CRITICAL",
-                "lesson": "An IF checks a condition. To COMPARE use ==, not =. "
-                          "MISSION: The firewall check is broken! Fix the line so it "
-                          "compares threat to 5.",
-                "broken_code": "if threat = 5:",
-                "expected": "if threat == 5:",
-                "hint": "Comparing needs a DOUBLE equals sign (==).",
-                "output": ["> running patch...", "> firewall comparison OK", "> threat scan restored"]},
+                "lesson": "Use != to test that two values are different. "
+                          "MISSION: Repair the check so it detects a user who is not admin.",
+                "broken_code": "if user = 'admin':",
+                "expected": "if user != 'admin':",
+                "options": [
+                    "if user = 'admin':",
+                    "if user != 'admin':",
+                    "if user == 'admin':",
+                ],
+                "answer_index": 1,
+                "hint": "!= means not equal.",
+                "output": ["> running patch...", "> user access checked", "> intruder scan ready"]},
             2: {"mode": "WRITE",
                 "ticket": "Block repeated login attempts",
                 "priority": "HIGH",
@@ -118,16 +136,27 @@ game_data = {
                 "expected": "if clearance >= 3:",
                 "hint": "Use >= (greater sign first, then equals).",
                 "output": ["> running patch...", "> clearance policy OK", "> access tier updated"]},
-            5: {"mode": "WRITE",
-                "ticket": "Reject non-admin accounts",
-                "priority": "MED",
-                "lesson": "!= means 'NOT equal to'. "
-                          "MISSION: Spot the intruders! Write an if that checks whether "
-                          "user is not equal to the text 'admin'.",
+            5: {"mode": "BOSS",
+                "ticket": "Configure the threat alarm",
+                "priority": "CRITICAL",
+                "lesson": "Write a script that sets the threat to 15, checks if it is greater than 10, and prints ALARM if true, or Safe if false.",
                 "broken_code": None,
-                "expected": "if user != 'admin':",
-                "hint": "if user != 'admin':   (text needs quotes, end with a colon)",
-                "output": ["> running patch...", "> account filter OK", "> intruder checks active"]},
+                "scrambled_blocks": [
+                    "print('ALARM')",
+                    "if threat > 10:",
+                    "threat = 15",
+                    "else:",
+                    "print('Safe')",
+                ],
+                "correct_script": [
+                    "threat = 15",
+                    "if threat > 10:",
+                    "print('ALARM')",
+                    "else:",
+                    "print('Safe')",
+                ],
+                "hint": "Set threat first, then add the if and else branches.",
+                "output": ["> running patch...", "> threat threshold armed", "> alarm ready"]},
         },
 
         # ---------------- LEVEL 3 ----------------
@@ -154,15 +183,14 @@ game_data = {
                 "hint": "patched is text, so it needs quotes around it.",
                 "output": ["> running patch...", "> administrator record repaired OK", "> database integrity restored"]},
             3: {"mode": "WRITE",
-                "ticket": "Open secure service port",
+                "ticket": "Read the first approved port",
                 "priority": "HIGH",
-                "lesson": "Add an item to the end of a list with list.append(item). "
-                          "MISSION: Open a new port! Add the number 8080 to the "
-                          "ports list.",
-                "broken_code": None,
-                "expected": "ports.append(8080)",
-                "hint": "ports.append(8080)   (a dot, then append, then brackets)",
-                "output": ["> running patch...", "> port 8080 added OK", "> secure service listening"]},
+                "lesson": "Python lists start at index 0, so the first item is at index 0. "
+                          "MISSION: Fix this line so first_port gets the first item in ports.",
+                "broken_code": "first_port = ports[1]",
+                "expected": "first_port = ports[0]",
+                "hint": "The first list item is at index 0.",
+                "output": ["> running patch...", "> first port selected OK", "> secure service ready"]},
             4: {"mode": "DEBUG",
                 "ticket": "Repair user profile dictionary",
                 "priority": "HIGH",
@@ -173,16 +201,25 @@ game_data = {
                 "expected": "user = {'role': 'guest'}",
                 "hint": "Dictionaries use curly braces { }.",
                 "output": ["> running patch...", "> user profile parsed OK", "> role policy restored"]},
-            5: {"mode": "WRITE",
-                "ticket": "Set server to secure mode",
+            5: {"mode": "BOSS",
+                "ticket": "Add the admin to active users",
                 "priority": "CRITICAL",
-                "lesson": "Update a dictionary: dict['key'] = 'new value'. "
-                          "MISSION: Switch the server mode! Set the 'mode' key of "
-                          "config to the text 'secure'.",
+                "lesson": "Write a script that creates an admin user dict, creates an empty active_users list, appends the user to the list, and prints the role.",
                 "broken_code": None,
-                "expected": "config['mode'] = 'secure'",
-                "hint": "config['mode'] = 'secure'   (quotes around key AND value)",
-                "output": ["> running patch...", "> server mode = secure OK", "> configuration locked"]},
+                "scrambled_blocks": [
+                    "print(user['role'])",
+                    "active_users.append(user)",
+                    "user = {'role': 'admin'}",
+                    "active_users = []",
+                ],
+                "correct_script": [
+                    "user = {'role': 'admin'}",
+                    "active_users = []",
+                    "active_users.append(user)",
+                    "print(user['role'])",
+                ],
+                "hint": "Create the user and list before appending and printing.",
+                "output": ["> running patch...", "> admin role assigned", "> active user added"]},
         },
 
         # ---------------- LEVEL 4 ----------------
@@ -228,16 +265,27 @@ game_data = {
                 "expected": "try:",
                 "hint": "The word try followed by a colon.",
                 "output": ["> running patch...", "> protected block initialized OK", "> secure execution path ready"]},
-            5: {"mode": "WRITE",
-                "ticket": "Report successful security check",
+            5: {"mode": "BOSS",
+                "ticket": "Complete secure error handling",
                 "priority": "CRITICAL",
-                "lesson": "return sends a value back out of a function. "
-                          "MISSION: Final patch! The secure_system function must report "
-                          "success. Write the line that returns True.",
+                "lesson": "Write a function called secure_system that tries to return True, but catches a ZeroDivisionError and returns False.",
                 "broken_code": None,
-                "expected": "return True",
-                "hint": "return True   (capital T)",
-                "output": ["> running patch...", "> security status = True OK", "> mainframe protection restored"]},
+                "scrambled_blocks": [
+                    " return False",
+                    "def secure_system():",
+                    " except ZeroDivisionError:",
+                    " try:",
+                    " return True",
+                ],
+                "correct_script": [
+                    "def secure_system():",
+                    " try:",
+                    " return True",
+                    " except ZeroDivisionError:",
+                    " return False",
+                ],
+                "hint": "Start with the function, then add try and except blocks.",
+                "output": ["> running patch...", "> division handler installed", "> secure system ready"]},
         },
     },
 
@@ -259,12 +307,70 @@ game_data = {
     # ------------------------------------------------------------------
 }
 
+concept_library = {
+    "Variables": {
+        "explanation": "A variable stores a value under a name. Use one = sign to assign it.",
+        "example": "security = 10",
+        "task": "Store the number 7 in a variable named alert_level.",
+        "answer": "alert_level = 7",
+        "why": "The name is on the left. The value is on the right.",
+    },
+    "Data Types": {
+        "explanation": "Numbers, text, and True/False values have different types. Text needs quotes.",
+        "example": "name = 'cipher'",
+        "task": "Store True in a variable named is_safe.",
+        "answer": "is_safe = True",
+        "why": "True is a Boolean value. It has a capital T and no quotes.",
+    },
+    "Comparisons": {
+        "explanation": "Comparisons check values. Use == to test equality and > to test a larger value.",
+        "example": "threat == 5",
+        "task": "Check if threat is equal to 3.",
+        "answer": "threat == 3",
+        "why": "Two equals signs compare values. One equals sign assigns a value.",
+    },
+    "If Statements": {
+        "explanation": "An if statement runs code only when its condition is true. End the line with a colon.",
+        "example": "if attempts > 3:",
+        "task": "Check if attempts is greater than 2.",
+        "answer": "if attempts > 2:",
+        "why": "The if line checks a condition and ends with a colon.",
+    },
+    "Lists": {
+        "explanation": "A list stores items in order. Put its items inside square brackets.",
+        "example": "ports = [80, 443]",
+        "task": "Make a list named ports with 22 and 80.",
+        "answer": "ports = [22, 80]",
+        "why": "Square brackets hold the list items, separated by a comma.",
+    },
+    "Dictionaries": {
+        "explanation": "A dictionary stores key and value pairs. Use curly braces and a colon.",
+        "example": "user = {'role': 'agent'}",
+        "task": "Set config's mode key to the text 'safe'.",
+        "answer": "config['mode'] = 'safe'",
+        "why": "Use the key in brackets, then assign its new value.",
+    },
+    "Functions": {
+        "explanation": "A function is reusable code. Start its header with def and end with a colon.",
+        "example": "def secure_system():",
+        "task": "Write a function header named scan with one parameter named target.",
+        "answer": "def scan(target):",
+        "why": "Put the parameter in parentheses and end the header with a colon.",
+    },
+    "Exceptions": {
+        "explanation": "try and except handle errors so a program can keep running.",
+        "example": "try:\n    connect()",
+        "task": "Write the line that starts an error-handling block.",
+        "answer": "try:",
+        "why": "A try block begins with try followed by a colon.",
+    },
+}
+
 
 _challenge_modes = {
     (1, 1): "CHOOSE",
     (1, 2): "ORDER",
     (1, 3): "SPEED",
-    (2, 1): "CHOOSE",
     (2, 2): "ORDER",
     (2, 3): "SPEED",
     (3, 1): "CHOOSE",
@@ -278,47 +384,49 @@ _challenge_modes = {
 _speed_questions = {
     1: "Set is_locked to the boolean True.",
     2: "Repair the offline status check line.",
-    3: "Add port 8080 to the ports list.",
+    3: "This line reads the second item: first_port = ports[1]. Fix it to read the first.",
     4: "Finish the ZeroDivisionError handler line.",
 }
 
-_boss_orders = {
-    1: [
-        "security = 10",
-        "is_locked = True",
-        "codename = 'cipher'",
-    ],
-    2: [
-        "if attempts > 3:",
-        "if clearance >= 3:",
-        "if user != 'admin':",
-    ],
-    3: [
-        "ports = [80, 443]",
-        "ports.append(8080)",
-        "config['mode'] = 'secure'",
-    ],
-    4: [
-        "def secure_system():",
-        "    try:",
-        "        return True",
-        "    except ZeroDivisionError:",
-        "        return False",
-    ],
+_task_reasons = {
+    (1, 1): "Use = to store a value in a named variable.",
+    (1, 2): "Assign agent before checking it and granting access.",
+    (1, 3): "True is a Boolean value and needs no quotes.",
+    (1, 4): "A float is a decimal number, not text.",
+    (1, 5): "Register the agent before setting access and checking admin status.",
+    (2, 1): "Use != to check that user is not admin.",
+    (2, 2): "Set a value before updating and checking it.",
+    (2, 3): "An if header ends with a colon.",
+    (2, 4): ">= includes the threshold itself.",
+    (2, 5): "Set the threat before checking it, then handle both outcomes.",
+    (3, 1): "Lists keep ordered items in square brackets.",
+    (3, 2): "Define ports before adding and copying them.",
+    (3, 3): "Python lists start at index 0, so ports[0] is first.",
+    (3, 4): "Dictionaries pair keys and values inside { }.",
+    (3, 5): "Create the user and list before appending and printing the role.",
+    (4, 1): "Functions start with def and end with a colon.",
+    (4, 2): "Define a function before using its block.",
+    (4, 3): "try and except handle errors.",
+    (4, 4): "Start a try block with try:",
+    (4, 5): "Define the function, then return safely inside try and except.",
 }
 
 _order_challenges = {
     1: [
-        "security = 10",
-        "agent_name = 'ghost'",
-        "codename = 'cipher'",
+        "agent = 'admin'",
+        "if agent == 'admin':",
+        "print('Access Granted')",
     ],
     2: [
-        "if threat == 5:",
-        "if attempts > 3:",
-        "if clearance >= 3:",
+        "attempts = 0",
+        "attempts += 1",
+        "if attempts > 0:",
     ],
-    3: _boss_orders[3],
+    3: [
+        "ports = [80, 443]",
+        "ports.append(8080)",
+        "approved_ports = ports",
+    ],
     4: [
         "def secure_system():",
         "    try:",
@@ -334,29 +442,39 @@ for _level_id, _level in game_data[1].items():
     for _exercise_id, _exercise in _level.items():
         if not isinstance(_exercise_id, int):
             continue
+        _exercise["why"] = _task_reasons[(_level_id, _exercise_id)]
         if _exercise_id == max(key for key in _level if isinstance(key, int)):
             _exercise["mode"] = "BOSS"
-            _exercise["boss_type"] = "ORDER"
-            _exercise["boss_order"] = _boss_orders[_level_id]
-            _exercise["lesson"] += (
-                " BOSS CHALLENGE: combine the level concepts in the correct order."
-            )
+            _exercise["boss_type"] = "SCRIPT_RECONSTRUCTION"
         elif (_level_id, _exercise_id) in _challenge_modes:
             _exercise["mode"] = _challenge_modes[(_level_id, _exercise_id)]
             if _exercise["mode"] == "CHOOSE":
-                correct = _exercise["expected"]
-                _exercise["options"] = [
-                    correct.replace(" = ", " == ", 1) if " = " in correct else correct + ";",
-                    correct,
-                    correct.rstrip(":") if correct.endswith(":") else correct + ":",
-                ]
-                _exercise["answer_index"] = 1
+                if "options" not in _exercise:
+                    correct = _exercise["expected"]
+                    _exercise["options"] = [
+                        correct.replace(" = ", " == ", 1) if " = " in correct else correct + ";",
+                        correct,
+                        correct.rstrip(":") if correct.endswith(":") else correct + ":",
+                    ]
+                    _exercise["answer_index"] = 1
             elif _exercise["mode"] == "ORDER":
                 _exercise["order_lines"] = list(_order_challenges[_level_id])
                 _exercise["expected_order"] = list(_exercise["order_lines"])
+                _exercise["order_goal"] = {
+                    1: "Set agent, check admin, then grant access.",
+                    2: "Create attempts, update it, then check it.",
+                    3: "Create ports, add one, then copy the list.",
+                    4: "Define, try, return, then handle the error.",
+                }[_level_id]
                 _exercise["ticket"] = "Order the security procedure"
-                _exercise["lesson"] = (
-                    "Arrange the related Python statements into a secure sequence."
-                )
+                _exercise["lesson"] = {
+                    1: (
+                        "Assign a value before checking it. Use == to compare the agent "
+                        "name, then run the matching access action."
+                    ),
+                    2: "Arrange the related Python statements into a secure sequence.",
+                    3: "Arrange the related Python statements into a secure sequence.",
+                    4: "Arrange the related Python statements into a secure sequence.",
+                }[_level_id]
             elif _exercise["mode"] == "SPEED":
                 _exercise["question"] = _speed_questions[_level_id]
