@@ -201,6 +201,10 @@ def draw_concept_practice(surf):
     pygame.draw.rect(surf, (1, 7, 17), input_box)
     pygame.draw.rect(surf, CYAN, input_box, 1)
     draw_text(surf, engine.concept_typed, 84, 198, WHITE, "m")
+    cursor_x = 84 + engine.fonts["m"].size(
+        engine.concept_typed[:engine.concept_cursor_pos]
+    )[0]
+    pygame.draw.line(surf, CYAN, (cursor_x, 197), (cursor_x, 214), 1)
     if engine.concept_feedback:
         color = GREEN if engine.concept_feedback.startswith("Correct!") else YELLOW
         for index, line in enumerate(wrap_text(engine.concept_feedback, "s", 340)[:2]):
@@ -263,18 +267,28 @@ def draw_roadmap(surf):
         dot_centers = [card.left + offset for offset in (10, 28, 46, 64, 86)]
         pygame.draw.line(surf, (25, 55, 75), (dot_centers[0], 167), (dot_centers[-1], 167), 1)
         exercise_ids = sorted_ids(level)
-        next_exercise = next(
-            (
-                exercise_id for exercise_id in exercise_ids
-                if (level_id, exercise_id) not in engine.completed_exercises
-            ),
-            exercise_ids[0],
+        next_exercise = (
+            exercise_ids[-1]
+            if engine.master_replay
+            else next(
+                (
+                    exercise_id for exercise_id in exercise_ids
+                    if (level_id, exercise_id) not in engine.completed_exercises
+                ),
+                exercise_ids[0],
+            )
         )
         for exercise_index, exercise_id in enumerate(exercise_ids):
             done = level_done or (level_id, exercise_id) in engine.completed_exercises
             current = is_selected and exercise_id == next_exercise
             hovered = engine.hovered_button == f"task_{level_id}_{exercise_id}"
-            color = GREEN if done else (YELLOW if current or hovered else CYAN if is_unlocked else DIM)
+            color = (
+                YELLOW if current and engine.master_replay
+                else GREEN if done
+                else YELLOW if current or hovered
+                else CYAN if is_unlocked
+                else DIM
+            )
             radius = 5 if exercise_index == 4 else 3
             pygame.draw.circle(surf, color, (dot_centers[exercise_index], 167), radius)
             label = "B" if exercise_index == 4 else str(exercise_index + 1)
@@ -294,7 +308,7 @@ def draw_roadmap(surf):
         surf,
         pygame.Rect(ROADMAP_BUTTON_RECT),
         (
-            f"START MASTER LEVEL {engine.roadmap_selection}"
+            f"START MASTER BOSS {engine.roadmap_selection}"
             if engine.master_replay
             else f"START LEVEL {engine.roadmap_selection}"
         ),
@@ -304,7 +318,7 @@ def draw_roadmap(surf):
     roadmap_help = engine.roadmap_notice or (
         "ARROWS: LEVEL // CLICK OR 1-5: TASK // 5 = BOSS"
         if not engine.master_replay
-        else "MASTER // ARROWS: LEVEL // CLICK OR 1-5: TASK"
+        else "MASTER // ARROWS/CLICK: SELECT LEVEL // ENTER: BOSS"
     )
     help_color = YELLOW if engine.roadmap_notice else DIM
     draw_text_center(surf, roadmap_help, 278, help_color, "s")
@@ -313,13 +327,25 @@ def draw_roadmap(surf):
 
 
 def draw_level_complete(surf):
-    draw_header(surf, f"LEVEL {engine.current_level} // COMPLETE", GREEN)
-    draw_panel(surf, pygame.Rect(28, 43, 394, 248), "SECURITY LAYER RESTORED", GREEN)
+    completion_title = (
+        f"MASTER BOSS {engine.current_level} // CLEARED"
+        if engine.master_replay
+        else f"LEVEL {engine.current_level} // COMPLETE"
+    )
+    draw_header(surf, completion_title, GREEN)
+    draw_panel(
+        surf,
+        pygame.Rect(28, 43, 394, 248),
+        "MASTER CHALLENGE CLEARED" if engine.master_replay else "SECURITY LAYER RESTORED",
+        GREEN,
+    )
     draw_shield(surf, 207, 63)
     draw_text_center(surf, "LEVEL COMPLETE!", 125, GREEN, "l")
     draw_text_center(surf, f"SCORE {engine.score}  //  XP {engine.xp}", 159, WHITE, "m")
     level_ids = sorted_ids(game_data[engine.current_preset])
-    if engine.current_level < level_ids[-1]:
+    if engine.master_replay:
+        unlock_text = "MASTER CLEARED // SELECT ANY LEVEL"
+    elif engine.current_level < level_ids[-1]:
         next_level = engine.current_level + 1
         next_title = game_data[engine.current_preset][next_level]["title"]
         unlock_text = f"UNLOCKED: LEVEL {next_level} // {next_title.upper()}"
@@ -426,7 +452,7 @@ def draw_apply(surf):
         mission_progress_percent(),
         engine.rogue_ai_takeover,
     )
-    draw_panel(surf, panel, "MISSION // OBJECTIVE", CYAN, (3, 11, 24))
+    draw_panel(surf, panel, f"MISSION // {mode}", CYAN, (3, 11, 24))
     draw_button(
         surf,
         pygame.Rect(HELPER_BUTTON_RECT),
@@ -498,15 +524,18 @@ def draw_apply(surf):
             pygame.Rect(
                 timer_bar.x,
                 timer_bar.y,
-                round(timer_bar.width * time_left / 20),
+                round(timer_bar.width * time_left / 40),
                 timer_bar.height,
             ),
         )
         pygame.draw.rect(surf, (19, 76, 105), timer_bar, 1)
 
     status_y = 264
-    if engine.feedback_timer > 0:
-        draw_text(surf, engine.msg, 24, status_y, engine.msg_color, "s")
+    if engine.feedback_timer > 0 or engine.hint_message_persistent:
+        status_lines = wrap_text(engine.msg, "s", W - 48)[:2]
+        start_y = status_y - (len(status_lines) - 1) * 12
+        for index, line in enumerate(status_lines):
+            draw_text(surf, line, 24, start_y + index * 12, engine.msg_color, "s")
     elif engine.attempts >= HINT_AFTER:
         hint = "HINT // " + exercise["hint"]
         for index, line in enumerate(wrap_text(hint, "s", W - 48)[:2]):
@@ -578,8 +607,14 @@ def draw_boss_apply(surf, exercise):
         engine.rogue_ai_takeover,
     )
     lesson_panel = pygame.Rect(8, 66, W - 16, 65)
-    draw_panel(surf, lesson_panel, "MISSION // OBJECTIVE", CYAN, (4, 10, 23))
-    for index, line in enumerate(wrap_text(exercise["objective"], "s", W - 40)):
+    draw_panel(
+        surf,
+        lesson_panel,
+        f"MISSION // {exercise['mode']}",
+        CYAN,
+        (4, 10, 23),
+    )
+    for index, line in enumerate(wrap_text(exercise["objective"], "s", W - 40)[:3]):
         draw_text(surf, line, 17, 87 + index * 12, WHITE, "s")
 
     evidence_panel = pygame.Rect(8, 137, 156, 181)
@@ -590,24 +625,26 @@ def draw_boss_apply(surf, exercise):
         else exercise["scrambled_blocks"]
     )
     evidence_color = GREEN if engine.solution_revealed else WHITE
+    evidence_font = "xxs" if engine.solution_revealed else "s"
+    evidence_line_height = 12 if engine.solution_revealed else 14
     evidence_title = "EVIDENCE // SOLUTION" if engine.solution_revealed else "EVIDENCE // SCRAMBLED"
     draw_text(surf, evidence_title, 15, 141, YELLOW, "xs")
     line_y = 158
     code_x = 34
     code_width = evidence_panel.right - 8 - code_x
     for line_index, code_line in enumerate(evidence_lines):
-        wrapped_lines = wrap_code_line(code_line, "s", code_width)
+        wrapped_lines = wrap_code_line(code_line, evidence_font, code_width)
         draw_text(surf, f"{line_index + 1}.", 14, line_y, YELLOW, "s")
         for wrapped_index, wrapped_line in enumerate(wrapped_lines):
             draw_text(
                 surf,
                 wrapped_line,
                 code_x,
-                line_y + wrapped_index * 14,
+                line_y + wrapped_index * evidence_line_height,
                 evidence_color,
-                "s",
+                evidence_font,
             )
-        line_y += max(1, len(wrapped_lines)) * 14 + 2
+        line_y += max(1, len(wrapped_lines)) * evidence_line_height + 2
 
     terminal_panel = pygame.Rect(170, 137, 272, 181)
     draw_panel(surf, terminal_panel, "mainframe.py // LIVE SCRIPT", CYAN, (1, 7, 17))
@@ -621,11 +658,15 @@ def draw_boss_apply(surf, exercise):
     input_x, input_y = 210, 274
     draw_text(surf, engine.boss_player_input, input_x, input_y, WHITE, "s")
     if (pygame.time.get_ticks() // 500) % 2 == 0:
-        cursor_x = input_x + engine.fonts["s"].size(engine.boss_player_input)[0]
+        cursor_prefix = engine.boss_player_input[:engine.cursor_pos]
+        cursor_x = input_x + engine.fonts["s"].size(cursor_prefix)[0]
         pygame.draw.rect(surf, CYAN, pygame.Rect(cursor_x, input_y + 1, 6, 11))
 
-    if engine.feedback_timer > 0:
-        draw_text(surf, engine.msg, 181, 301, engine.msg_color, "s")
+    if engine.feedback_timer > 0 or engine.hint_message_persistent:
+        status_lines = wrap_text(engine.msg, "s", W - 48)[:2]
+        start_y = 313 - (len(status_lines) - 1) * 12
+        for index, line in enumerate(status_lines):
+            draw_text(surf, line, 24, start_y + index * 12, engine.msg_color, "s")
     elif engine.boss_line_index < exercise_count:
         draw_text(surf, "TYPE THIS LINE, THEN PRESS ENTER", 181, 301, DIM, "s")
 
@@ -643,7 +684,13 @@ def draw_boss_apply(surf, exercise):
         CYAN,
         engine.hovered_button == "boss_library",
     )
-    draw_text_center(surf, "TYPE LINE // ENTER: CONFIRM // F1: LESSON", 329, WHITE, "s")
+    draw_text_center(
+        surf,
+        "LEFT/RIGHT: CURSOR // BACKSPACE: DELETE // ENTER: SEND",
+        329,
+        WHITE,
+        "s",
+    )
     if engine.lesson_open:
         draw_lesson_overlay(surf)
     if engine.settings_open:
@@ -744,24 +791,43 @@ def draw_victory(surf):
         34,
         bold=True,
     )
-    draw_panel(surf, pygame.Rect(24, 42, 402, 264), "GLOBAL NETWORK // ALL THREATS NEUTRALIZED")
+    title = (
+        "MASTER MODE // ALL BOSSES DEFEATED"
+        if engine.master_replay
+        else "GLOBAL NETWORK // CAMPAIGN COMPLETE"
+    )
+    draw_panel(surf, pygame.Rect(24, 42, 402, 264), title)
     if engine.unlock_animation_timer > 0:
         draw_unlock_lock(surf, 383, 56)
-    title = title_font.render("SYSTEM SECURED", False, GREEN)
-    surf.blit(title, ((W - title.get_width()) // 2, 95))
-    draw_text_center(surf, "Mainframe saved. Rogue AI neutralized.", 150, WHITE, "s")
+    celebration = "MASTER COMPLETE" if engine.master_replay else "SYSTEM SECURED"
+    title_image = title_font.render(celebration, False, GREEN)
+    surf.blit(title_image, ((W - title_image.get_width()) // 2, 95))
+    message = (
+        "Level 4 boss defeated! All Master challenges cleared."
+        if engine.master_replay
+        else "Level 4 boss defeated! All four levels are secured."
+    )
+    draw_text_center(surf, message, 150, WHITE, "s")
+    draw_text_center(surf, f"FINAL SCORE {engine.score}  //  XP {engine.xp}", 179, CYAN, "s")
 
     draw_button(
         surf,
         pygame.Rect(VICTORY_BUTTON_RECT),
-        "RETURN TO MAIN MENU",
+        "RETURN TO MASTER SELECT" if engine.master_replay else "RETURN TO HOME SCREEN",
         GREEN,
     )
 
 
 def draw_compromised(surf):
     draw_panel(surf, pygame.Rect(24, 42, 402, 264), "MISSION FAILED", RED, (24, 5, 16))
-    draw_text_center(surf, "Rogue AI takeover reached 100%.", 128, WHITE, "s")
+    for index, line in enumerate(
+        wrap_text(
+            "Takeover reached 100%. Mission lost. Retry this level or return to the roadmap.",
+            "s",
+            350,
+        )[:2]
+    ):
+        draw_text_center(surf, line, 123 + index * 14, WHITE, "s")
     draw_button(
         surf,
         pygame.Rect(LOSS_RETRY_BUTTON_RECT),
