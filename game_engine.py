@@ -56,6 +56,7 @@ cursor_pos = 0          # cursor index inside `typed`
 msg = ""                # feedback message
 msg_color = WHITE
 feedback_timer = 0
+hint_message_persistent = False
 
 shake = 0.0             # screen-shake intensity
 flash = 0               # frames of border flash left
@@ -96,6 +97,7 @@ combo_popup_text = ""
 library_return_state = "MODE_SELECT"
 selected_concept = 0
 concept_typed = ""
+concept_cursor_pos = 0
 concept_feedback = ""
 helper_stage = 0
 solution_revealed = False
@@ -194,12 +196,14 @@ def start_apply():
     global boss_line_index, boss_player_input, boss_typed_lines
     global helper_stage, solution_revealed, takeover_tooltip_seen, takeover_tooltip_timer
     global settings_open, feedback_timer
+    global hint_message_persistent
     set_state("APPLY")
     typed = ""
     cursor_pos = 0
     msg = ""
     attempts = 0
     feedback_timer = 0
+    hint_message_persistent = False
     concept = (current_preset, current_level)
     lesson_open = concept not in seen_concepts
     helper_stage = 0
@@ -228,14 +232,15 @@ def start_apply():
         order_items = random.sample(get_exercise()["order_lines"], len(get_exercise()["order_lines"]))
     else:
         order_items = []
-    speed_timer_frames = 20 * FPS if mode == "SPEED" and play_mode == "MISSION" else 0
+    speed_timer_frames = 40 * FPS if mode == "SPEED" and play_mode == "MISSION" else 0
     tip = get_exercise().get("order_goal", get_exercise()["hint"]) if mode == "ORDER" else get_exercise()["hint"]
     speaker, text = task_tip(tip)
     set_comms_message(speaker, text)
     if play_mode == "MISSION" and not takeover_tooltip_seen:
         takeover_tooltip_seen = True
         takeover_tooltip_timer = 8 * FPS
-    save_game()
+    if not master_replay:
+        save_game()
 
 
 def begin_game(mode):
@@ -354,11 +359,19 @@ def start_master_mode():
 
 
 def start_master_level():
-    global play_mode
+    global current_level, current_exercise, play_mode, roadmap_notice
+    global rogue_ai_takeover
     if not all_levels_completed() or roadmap_selection not in completed_levels:
         return
+    current_level = roadmap_selection
+    current_exercise = sorted_ids(get_level())[-1]
     play_mode = "MISSION"
-    start_selected_level()
+    rogue_ai_takeover = 0
+    roadmap_notice = ""
+    set_state("BOSS_INTRO")
+    trigger_dialogue("boss_intro")
+    if sound_manager:
+        sound_manager.play("boss_intro")
 
 
 def is_level_unlocked(level_id):
@@ -390,8 +403,9 @@ def close_concept_library():
 
 
 def start_concept_practice():
-    global concept_typed, concept_feedback
+    global concept_typed, concept_cursor_pos, concept_feedback
     concept_typed = ""
+    concept_cursor_pos = 0
     concept_feedback = ""
     set_state("CONCEPT_TRY")
 
@@ -407,33 +421,63 @@ def submit_concept_practice():
 
 def show_agent_hint():
     global helper_stage, active_dialogue, dialogue_queue, solution_revealed
-    if helper_stage >= 3:
+    global rogue_ai_takeover, msg, msg_color, feedback_timer
+    global hint_message_persistent
+    if play_mode == "MISSION" and helper_stage >= 3:
         return
     exercise = get_exercise()
+    hint_text = ""
+    if play_mode == "MISSION":
+        takeover_before_hint = rogue_ai_takeover
+        takeover_cost = (10, 15, 20)[helper_stage]
+        rogue_ai_takeover = min(100, rogue_ai_takeover + takeover_cost)
+        actual_takeover_cost = rogue_ai_takeover - takeover_before_hint
+        save_game()
+
     if helper_stage < 2:
         speaker, text = helper_line(current_level, current_exercise, helper_stage + 1)
         helper_stage += 1
+        hint_text = text
         set_comms_message(speaker, text)
-        return
-
-    if exercise["mode"] == "BOSS":
-        answer_lines = exercise["correct_script"]
-        solution_revealed = True
     else:
-        answer_lines = exercise.get("expected_order", [exercise["expected"]])
-    append_console_line("AGENT ANSWER //", CYAN)
-    for line in answer_lines:
-        for answer_line in wrap(line, width=58):
-            append_console_line(answer_line, GREEN)
-    explanation = exercise["lesson"].strip()
-    for explanation_line in wrap("WHY // " + explanation, width=58):
-        append_console_line(explanation_line, CYAN)
-    set_comms_message(
-        "HANDLER",
-        "Full script is shown in Evidence." if exercise["mode"] == "BOSS"
-        else "Answer and why are in the console.",
-    )
-    helper_stage = 3
+        if exercise["mode"] == "BOSS":
+            answer_lines = exercise["correct_script"]
+            solution_revealed = True
+        else:
+            answer_lines = exercise.get("expected_order", [exercise["expected"]])
+        append_console_line("AGENT ANSWER //", CYAN)
+        for line in answer_lines:
+            for answer_line in wrap(line, width=58):
+                append_console_line(answer_line, GREEN)
+        explanation = exercise["lesson"].strip()
+        for explanation_line in wrap("WHY // " + explanation, width=58):
+            append_console_line(explanation_line, CYAN)
+        hint_text = (
+            "Full script is shown in Evidence."
+            if exercise["mode"] == "BOSS"
+            else "Answer and why are in the console."
+        )
+        set_comms_message("HANDLER", hint_text)
+        helper_stage = 3
+
+    if play_mode == "MISSION":
+        msg = (
+            f"{hint_text} // -{actual_takeover_cost}% TAKEOVER "
+            f"({rogue_ai_takeover}%) // 100% = MISSION LOST"
+        )
+        msg_color = RED
+        if sound_manager:
+            sound_manager.update_alarm(rogue_ai_takeover)
+        if rogue_ai_takeover >= 100:
+            set_state("GAMEOVER_LOSS")
+    elif helper_stage < 3:
+        msg = f"HINT // {hint_text}"
+        msg_color = YELLOW
+    else:
+        msg = "ANSWER AND WHY SHOWN // ASK FOR HELP AGAIN ANYTIME"
+        msg_color = YELLOW
+    feedback_timer = 0
+    hint_message_persistent = True
 
 
 def has_saved_game():
@@ -452,6 +496,7 @@ def save_game(resume_state="APPLY", level=None, exercise=None):
         "mode": play_mode,
         "score": score,
         "xp": xp,
+        "rogue_ai_takeover": rogue_ai_takeover,
         "completed_exercises": sorted([list(item) for item in completed_exercises]),
         "completed_levels": sorted(completed_levels),
         "played_levels": sorted(played_levels),
@@ -469,7 +514,7 @@ def save_game(resume_state="APPLY", level=None, exercise=None):
 
 def resume_saved_game():
     global current_preset, current_level, current_exercise, play_mode
-    global score, xp, completed_exercises, completed_levels, played_levels, roadmap_selection, save_error
+    global score, xp, rogue_ai_takeover, completed_exercises, completed_levels, played_levels, roadmap_selection, save_error
     global campaign_progress_loaded
     try:
         data = json.loads(SAVE_PATH.read_text(encoding="utf-8"))
@@ -514,6 +559,9 @@ def resume_saved_game():
         saved_xp = data["xp"]
         if type(saved_score) is not int or saved_score < 0 or type(saved_xp) is not int or saved_xp < 0:
             raise ValueError("save score is invalid")
+        saved_takeover = data.get("rogue_ai_takeover", 0)
+        if type(saved_takeover) is not int or not 0 <= saved_takeover <= 100:
+            raise ValueError("save takeover record is invalid")
         resume_state = data.get("resume_state", "APPLY")
         if resume_state not in ("APPLY", "ROADMAP"):
             raise ValueError("save progress is invalid")
@@ -523,6 +571,7 @@ def resume_saved_game():
         play_mode = mode
         score = saved_score
         xp = saved_xp
+        rogue_ai_takeover = saved_takeover
         completed_exercises = exercises
         completed_levels = set(saved_levels)
         played_levels = set(saved_played) | completed_levels | {level}
@@ -532,7 +581,9 @@ def resume_saved_game():
         save_error = f"SAVE ERROR // {error}"
         return
     save_error = ""
-    if resume_state == "ROADMAP":
+    if play_mode == "MISSION" and rogue_ai_takeover >= 100:
+        set_state("GAMEOVER_LOSS")
+    elif resume_state == "ROADMAP":
         set_state("ROADMAP")
     else:
         start_apply()
@@ -583,11 +634,25 @@ def start_selected_exercise(exercise_id):
 
 def continue_to_roadmap():
     global current_level, current_exercise, roadmap_selection
-    current_level = campaign_frontier()
-    roadmap_selection = current_level
-    current_exercise = sorted_ids(get_level())[0]
-    save_game("ROADMAP")
+    if master_replay:
+        roadmap_selection = current_level
+        current_exercise = sorted_ids(get_level())[-1]
+    else:
+        current_level = campaign_frontier()
+        roadmap_selection = current_level
+        current_exercise = sorted_ids(get_level())[0]
+        save_game("ROADMAP")
     set_state("ROADMAP")
+
+
+def finish_victory():
+    global current_exercise, roadmap_selection
+    if master_replay:
+        roadmap_selection = current_level
+        current_exercise = sorted_ids(get_level())[-1]
+        set_state("ROADMAP")
+    else:
+        set_state("MODE_SELECT")
 
 
 def reset_campaign_progress():
@@ -622,12 +687,17 @@ def restart_current_level():
     global current_exercise, rogue_ai_takeover, streak, combo_popup_timer
     global combo_popup_text, dialogue_queue, active_dialogue, particles, floating_texts
     global answer_pending
-    current_exercise = sorted_ids(get_level())[0]
+    current_exercise = (
+        sorted_ids(get_level())[-1]
+        if master_replay
+        else sorted_ids(get_level())[0]
+    )
     rogue_ai_takeover = 0
     streak = 0
     combo_popup_timer = 0
     combo_popup_text = ""
-    reset_current_level_progress()
+    if not master_replay:
+        reset_current_level_progress()
     dialogue_queue = []
     active_dialogue = None
     particles = []
@@ -637,21 +707,30 @@ def restart_current_level():
 
 
 def return_to_roadmap():
-    global current_exercise, rogue_ai_takeover, answer_pending, active_dialogue, dialogue_queue
-    current_exercise = next(
-        (
-            exercise_id for exercise_id in sorted_ids(get_level())
-            if (current_level, exercise_id) not in completed_exercises
-        ),
-        sorted_ids(get_level())[0],
+    global current_exercise, roadmap_selection, rogue_ai_takeover
+    global answer_pending, active_dialogue, dialogue_queue
+    current_exercise = (
+        sorted_ids(get_level())[-1]
+        if master_replay
+        else next(
+            (
+                exercise_id for exercise_id in sorted_ids(get_level())
+                if (current_level, exercise_id) not in completed_exercises
+            ),
+            sorted_ids(get_level())[0],
+        )
     )
-    rogue_ai_takeover = 0
+    if state == "GAMEOVER_LOSS":
+        rogue_ai_takeover = 0
     answer_pending = False
     active_dialogue = None
     dialogue_queue = []
     if sound_manager:
-        sound_manager.update_alarm(0)
-    save_game("ROADMAP")
+        sound_manager.update_alarm(rogue_ai_takeover)
+    if master_replay:
+        roadmap_selection = current_level
+    else:
+        save_game("ROADMAP")
     set_state("ROADMAP")
 
 
@@ -726,17 +805,21 @@ def append_console_line(text, color, animated=False, delay=2):
 
 def submit_boss_line():
     global boss_line_index, boss_player_input, boss_typed_lines, attempts, rogue_ai_takeover
+    global cursor_pos
     global streak, shake, flash, flash_color, msg, msg_color, feedback_timer
+    global hint_message_persistent
     global glitch_lines, glitch_timer, solution_revealed
     exercise = get_exercise()
     expected = exercise["correct_script"][boss_line_index]
     correct = boss_player_input.strip() == expected.strip()
+    hint_message_persistent = False
     if sound_manager and not (correct and boss_line_index == len(exercise["correct_script"]) - 1):
         sound_manager.play("submit")
     if correct:
         boss_typed_lines.append(expected)
         boss_line_index += 1
         boss_player_input = ""
+        cursor_pos = 0
         flash, flash_color = 8, GREEN
         msg = f"LINE {boss_line_index}/{len(exercise['correct_script'])} // ACCEPTED"
         msg_color = GREEN
@@ -750,6 +833,7 @@ def submit_boss_line():
 
     if play_mode == "MISSION":
         rogue_ai_takeover = min(100, rogue_ai_takeover + 10)
+        save_game()
     streak = 0
     attempts += 1
     error_text = f"SyntaxError: expected line {boss_line_index + 1}"
@@ -784,6 +868,8 @@ def submit_answer(timed_out=False):
     global milestones_seen, milestone_banner, milestone_banner_timer, milestone_queue
     global streak, score, xp, completed_levels, combo_popup_timer, combo_popup_text, rogue_ai_takeover
     global speed_timer_frames, shake, reduce_effects, unlock_animation_timer, solution_revealed
+    global hint_message_persistent
+    hint_message_persistent = False
     global feedback_timer
     mode = get_exercise()["mode"]
     if mode == "BOSS" and boss_line_index < len(get_exercise()["correct_script"]):
@@ -806,8 +892,9 @@ def submit_answer(timed_out=False):
         submitted = order_items if mode == "ORDER" else get_exercise()["options"][choice_index]
         append_console_line(f">>> {submitted}", GREEN)
     if answer_correct:
-        rogue_ai_takeover = max(0, rogue_ai_takeover - 15)
-        completed_exercises.add((current_level, current_exercise))
+        master_boss = master_replay and mode == "BOSS"
+        if not master_boss:
+            completed_exercises.add((current_level, current_exercise))
         streak += 1
         reward = 100 + max(0, streak - 1) * 25
         score += reward
@@ -822,10 +909,11 @@ def submit_answer(timed_out=False):
             for level_id in sorted_ids(game_data[current_preset])
         )
         progress_percent = round(len(completed_exercises) * 100 / total_exercises)
-        for milestone in (25, 50, 75, 100):
-            if progress_percent >= milestone and milestone not in milestones_seen:
-                milestones_seen.add(milestone)
-                milestone_queue.append(f"PROGRESS MILESTONE // {milestone}%")
+        if not master_boss:
+            for milestone in (25, 50, 75, 100):
+                if progress_percent >= milestone and milestone not in milestones_seen:
+                    milestones_seen.add(milestone)
+                    milestone_queue.append(f"PROGRESS MILESTONE // {milestone}%")
         if milestone_banner_timer <= 0 and milestone_queue:
             milestone_banner = milestone_queue.pop(0)
             milestone_banner_timer = 150
@@ -840,15 +928,27 @@ def submit_answer(timed_out=False):
                 )
         for line in get_exercise()["output"]:
             append_console_line(line, GREEN, animated=True, delay=1)
-        pending_state = "LEVEL_COMPLETE" if is_last_exercise_of_level() else "WIN"
+        final_boss = (
+            is_last_exercise_of_level()
+            and is_last_level_of_preset()
+            and is_last_preset()
+        )
+        pending_state = (
+            "GAMEOVER_WIN"
+            if final_boss
+            else "LEVEL_COMPLETE" if is_last_exercise_of_level()
+            else "WIN"
+        )
         if is_last_exercise_of_level():
-            completed_levels.add(current_level)
-            next_level = min(current_level + 1, sorted_ids(game_data[current_preset])[-1])
-            save_game("ROADMAP", next_level, sorted_ids(game_data[current_preset][next_level])[0])
+            if not master_boss:
+                completed_levels.add(current_level)
+                next_level = min(current_level + 1, sorted_ids(game_data[current_preset])[-1])
+                save_game("ROADMAP", next_level, sorted_ids(game_data[current_preset][next_level])[0])
         else:
             exercise_ids = sorted_ids(get_level())
             next_exercise = exercise_ids[exercise_ids.index(current_exercise) + 1]
-            save_game("APPLY", current_level, next_exercise)
+            if not master_boss:
+                save_game("APPLY", current_level, next_exercise)
         answer_pending = True
         pending_state_timer = 30
         msg = f"CORRECT // {get_exercise()['why']}"
@@ -872,6 +972,7 @@ def submit_answer(timed_out=False):
     else:
         if play_mode == "MISSION":
             rogue_ai_takeover = min(100, rogue_ai_takeover + 10)
+            save_game()
         streak = 0
         if play_mode == "TRAINING":
             error_text = "Try again. Check the example or press HINT."
@@ -1039,7 +1140,7 @@ def handle_escape():
     elif state in ("INTRO", "BOSS_INTRO", "WIN"):
         set_state("ROADMAP")
     elif state == "GAMEOVER_WIN":
-        set_state("MODE_SELECT")
+        finish_victory()
     elif state == "MODE_SELECT":
         set_state("MENU")
     elif state == "MENU":
@@ -1051,9 +1152,10 @@ def handle_escape():
 def handle_key(event):
     global typed, cursor_pos, lesson_open, choice_index, order_cursor, order_items, reduce_effects
     global shake, flash, glitch_timer, mode_selection, selected_concept, concept_typed, concept_feedback
-    global settings_open, roadmap_selection, boss_player_input, roadmap_notice
+    global concept_cursor_pos, settings_open, roadmap_selection, boss_player_input, roadmap_notice
     modifiers = getattr(event, "mod", 0)
     control_pressed = bool(modifiers & pygame.KMOD_CTRL)
+    text_entry_active = state == "CONCEPT_TRY"
     if event.key == pygame.K_ESCAPE:
         handle_escape()
         return
@@ -1065,14 +1167,16 @@ def handle_key(event):
         set_state("MODE_SELECT")
         return
 
-    if event.key == pygame.K_m and (
+    if event.key == pygame.K_m and not text_entry_active and (
         (state not in ("MODE_SELECT", "ROADMAP") and (state != "APPLY" or control_pressed or settings_open))
         or (state == "MODE_SELECT" and settings_open)
     ):
         if sound_manager:
             sound_manager.toggle_mute()
         return
-    if event.key == pygame.K_r and (state != "APPLY" or control_pressed or settings_open):
+    if event.key == pygame.K_r and not text_entry_active and (
+        state != "APPLY" or control_pressed or settings_open
+    ):
         reduce_effects = not reduce_effects
         if reduce_effects:
             shake = 0.0
@@ -1080,13 +1184,13 @@ def handle_key(event):
             glitch_timer = 0
         return
     if event.key in (pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS) and (
-        state != "APPLY" or control_pressed or settings_open
+        not text_entry_active and (state != "APPLY" or control_pressed or settings_open)
     ):
         if sound_manager:
             sound_manager.adjust_volume(0.1)
         return
     if event.key in (pygame.K_MINUS, pygame.K_KP_MINUS) and (
-        state != "APPLY" or control_pressed or settings_open
+        not text_entry_active and (state != "APPLY" or control_pressed or settings_open)
     ):
         if sound_manager:
             sound_manager.adjust_volume(-0.1)
@@ -1157,11 +1261,32 @@ def handle_key(event):
     if state == "CONCEPT_TRY":
         if is_enter:
             submit_concept_practice()
+        elif event.key == pygame.K_LEFT:
+            concept_cursor_pos = max(0, concept_cursor_pos - 1)
+        elif event.key == pygame.K_RIGHT:
+            concept_cursor_pos = min(len(concept_typed), concept_cursor_pos + 1)
         elif event.key == pygame.K_BACKSPACE:
-            concept_typed = concept_typed[:-1]
-            concept_feedback = ""
+            if concept_cursor_pos:
+                concept_typed = (
+                    concept_typed[:concept_cursor_pos - 1]
+                    + concept_typed[concept_cursor_pos:]
+                )
+                concept_cursor_pos -= 1
+                concept_feedback = ""
+        elif event.key == pygame.K_DELETE:
+            if concept_cursor_pos < len(concept_typed):
+                concept_typed = (
+                    concept_typed[:concept_cursor_pos]
+                    + concept_typed[concept_cursor_pos + 1:]
+                )
+                concept_feedback = ""
         elif event.unicode and event.unicode.isprintable() and len(concept_typed) < MAX_INPUT:
-            concept_typed += event.unicode
+            concept_typed = (
+                concept_typed[:concept_cursor_pos]
+                + event.unicode
+                + concept_typed[concept_cursor_pos:]
+            )
+            concept_cursor_pos += len(event.unicode)
             concept_feedback = ""
         return
 
@@ -1188,7 +1313,8 @@ def handle_key(event):
                 pygame.K_5: 5, pygame.K_KP5: 5,
             }
             exercise_id = exercise_by_key[event.key]
-            start_selected_exercise(exercise_id)
+            if not master_replay:
+                start_selected_exercise(exercise_id)
         elif event.key == pygame.K_m and all_levels_completed():
             start_master_level()
         elif is_enter:
@@ -1223,6 +1349,7 @@ def handle_key(event):
                     if mode == "BOSS":
                         line = clipboard_text.splitlines()[0] if clipboard_text.splitlines() else clipboard_text
                         boss_player_input = line[:MAX_INPUT]
+                        cursor_pos = len(boss_player_input)
                     else:
                         insert_text(clipboard_text)
                     if sound_manager:
@@ -1241,11 +1368,29 @@ def handle_key(event):
             if is_enter:
                 submit_boss_line()
             elif event.key == pygame.K_BACKSPACE:
-                boss_player_input = boss_player_input[:-1]
+                if cursor_pos > 0:
+                    boss_player_input = (
+                        boss_player_input[:cursor_pos - 1]
+                        + boss_player_input[cursor_pos:]
+                    )
+                    cursor_pos -= 1
+                    if sound_manager:
+                        sound_manager.play("key")
+            elif event.key == pygame.K_LEFT:
+                cursor_pos = max(0, cursor_pos - 1)
+                if sound_manager:
+                    sound_manager.play("key")
+            elif event.key == pygame.K_RIGHT:
+                cursor_pos = min(len(boss_player_input), cursor_pos + 1)
                 if sound_manager:
                     sound_manager.play("key")
             elif event.unicode and event.unicode.isprintable() and len(boss_player_input) < MAX_INPUT:
-                boss_player_input += event.unicode
+                boss_player_input = (
+                    boss_player_input[:cursor_pos]
+                    + event.unicode
+                    + boss_player_input[cursor_pos:]
+                )
+                cursor_pos += len(event.unicode)
                 if sound_manager:
                     sound_manager.play("key")
                 elif type_sound:
@@ -1429,7 +1574,8 @@ def handle_event(event):
                     target = pygame.Rect(centers[task_index] - 8, 157, 16, 37)
                     if target.collidepoint(position):
                         roadmap_selection = level_id
-                        start_selected_exercise(exercise_id)
+                        if not master_replay:
+                            start_selected_exercise(exercise_id)
                         task_clicked = True
                         break
                 if task_clicked:
@@ -1437,7 +1583,10 @@ def handle_event(event):
             if task_clicked:
                 pass
             elif pygame.Rect(ROADMAP_BUTTON_RECT).collidepoint(position):
-                start_selected_level()
+                if master_replay:
+                    start_master_level()
+                else:
+                    start_selected_level()
             else:
                 for index, level_id in enumerate(level_ids):
                     card = pygame.Rect(14 + index * 106, 75, 100, 185)
@@ -1492,14 +1641,6 @@ def handle_event(event):
                 sound_manager.play("menu_click")
             set_state("INTRO")
         elif state == "GAMEOVER_WIN" and pygame.Rect(VICTORY_BUTTON_RECT).collidepoint(position):
-            current_preset = 1
-            current_level = 1
-            current_exercise = 1
-            rogue_ai_takeover = 0
-            streak = 0
-            xp = 0
-            reset_campaign_progress()
-            set_state("MENU")
-            menu_button_hover = False
+            finish_victory()
     elif event.type == pygame.KEYDOWN:
         handle_key(event)

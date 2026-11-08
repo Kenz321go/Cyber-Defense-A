@@ -34,8 +34,9 @@ game_data = {
                 "ticket": "Assign security clearance",
                 "priority": "HIGH",
                 "lesson": "A VARIABLE is a named box that stores data. Use = to put a value inside. "
-                          "MISSION: The mainframe has NO security level! Create a variable called "
-                          "security and store the number 10 in it.",
+                          "MISSION: The firewall's clearance field is empty. Policy requires a numeric "
+                          "level of ten in the existing security setting. Choose the assignment that "
+                          "stores this policy value correctly.",
                 "broken_code": None,
                 "expected": "security = 10",
                 "hint": "name = value   (one = sign, spaces around it)",
@@ -43,8 +44,10 @@ game_data = {
             2: {"mode": "ORDER",
                 "ticket": "Restore authorized admin access",
                 "priority": "MED",
-                "lesson": "Assign the agent name before checking it. "
-                          "MISSION: Put the admin access statements in the correct order.",
+                "lesson": "A check cannot use a value before it exists, and a grant should only follow "
+                          "a successful check. MISSION: An authorized operator is identified as admin. "
+                          "Reorder the access procedure so the identity is established before the "
+                          "comparison and the grant happens last.",
                 "broken_code": None,
                 "expected": "agent = 'admin'",
                 "hint": "Set agent first, compare with ==, then grant access.",
@@ -53,8 +56,8 @@ game_data = {
                 "ticket": "Set system lock status",
                 "priority": "HIGH",
                 "lesson": "A bool is either True or False (capital first letter, no quotes). "
-                          "MISSION: Lock down the system! Create a variable called is_locked "
-                          "and set it to True.",
+                          "MISSION: The intrusion report says the lock flag is active, not inactive. "
+                          "Update the system's is_locked setting with the correct Boolean value.",
                 "broken_code": None,
                 "expected": "is_locked = True",
                 "hint": "is_locked = True   (capital T, no quotes)",
@@ -63,8 +66,9 @@ game_data = {
                 "ticket": "Convert connection speed to float",
                 "priority": "MED",
                 "lesson": "Quotes turn a value into text (str). A float is a number with a decimal "
-                          "point and NO quotes. MISSION: Connection speed is stored as text! "
-                          "Fix it so it is the number 1.5.",
+                          "point and NO quotes. MISSION: Telemetry expects a numeric speed for "
+                          "calculations, but the displayed value is currently text. Repair the line "
+                          "so the stored value behaves as the decimal number one and a half.",
                 "broken_code": "speed = '1.5'",
                 "expected": "speed = 1.5",
                 "hint": "Remove the quotes around 1.5 so it is a number.",
@@ -72,7 +76,10 @@ game_data = {
             5: {"mode": "BOSS",
                 "ticket": "Configure admin access",
                 "priority": "CRITICAL",
-                "lesson": "Write a script to register the agent, set their access level, and check if they are an admin.",
+                "objective": "Order Ghost's level-5 admin setup; grant access only after the check passes.",
+                "lesson": "An operative named ghost is arriving with clearance tier five. The system "
+                          "must record the operative, set the tier and admin flag, then print "
+                          "'Access Granted' only after the admin check passes.",
                 "broken_code": None,
                 "scrambled_blocks": [
                     "if is_admin == True:",
@@ -99,7 +106,9 @@ game_data = {
                 "ticket": "Repair firewall comparison",
                 "priority": "CRITICAL",
                 "lesson": "Use != to test that two values are different. "
-                          "MISSION: Repair the check so it detects a user who is not admin.",
+                          "MISSION: The firewall should flag every account except admin. The current "
+                          "comparison uses assignment where a condition is required; choose the "
+                          "operator that means the account name is different from admin.",
                 "broken_code": "if user = 'admin':",
                 "expected": "if user != 'admin':",
                 "options": [
@@ -114,8 +123,9 @@ game_data = {
                 "ticket": "Block repeated login attempts",
                 "priority": "HIGH",
                 "lesson": "Comparison operators: > < >= <= == !=   An if line ends with a colon. "
-                          "MISSION: Too many login tries! Write an if that checks whether "
-                          "attempts is greater than 3.",
+                          "MISSION: The alert policy activates only after the third failed login; "
+                          "three attempts is still allowed. Write the condition that detects the "
+                          "first blocked attempt.",
                 "broken_code": None,
                 "expected": "if attempts > 3:",
                 "hint": "if attempts > 3:   (don't forget the colon)",
@@ -124,7 +134,8 @@ game_data = {
                 "ticket": "Restore offline status check",
                 "priority": "HIGH",
                 "lesson": "Every if line must END with a colon : so Python knows a block follows. "
-                          "MISSION: The status check will not run. Fix the line!",
+                          "MISSION: The monitor must enter its offline-response branch, but the "
+                          "condition is rejected before it can run. Repair the incomplete check.",
                 "broken_code": "if status == 'offline'",
                 "expected": "if status == 'offline':",
                 "hint": "Something is missing at the very end of the line.",
@@ -133,8 +144,8 @@ game_data = {
                 "ticket": "Enforce clearance threshold",
                 "priority": "MED",
                 "lesson": ">= means 'greater than or equal to'. "
-                          "MISSION: Only high-clearance agents may enter. Write an if that "
-                          "checks whether clearance is greater than or equal to 3.",
+                          "MISSION: Entry policy sets tier three as the minimum: an agent at exactly "
+                          "three must be admitted too. Write the condition that enforces that boundary.",
                 "broken_code": None,
                 "expected": "if clearance >= 3:",
                 "hint": "Use >= (greater sign first, then equals).",
@@ -142,7 +153,10 @@ game_data = {
             5: {"mode": "BOSS",
                 "ticket": "Configure the threat alarm",
                 "priority": "CRITICAL",
-                "lesson": "Write a script that sets the threat to 15, checks if it is greater than 10, and prints ALARM if true, or Safe if false.",
+                "objective": "Threat is 15; compare it with 10 and print ALARM or Safe in the correct order.",
+                "lesson": "A sensor reports threat level fifteen. The warning threshold is ten: "
+                          "levels above it must print 'ALARM', while all other levels print 'Safe'. "
+                          "Reconstruct the conditional script in the order Python needs it.",
                 "broken_code": None,
                 "scrambled_blocks": [
                     "print('ALARM')",
@@ -169,8 +183,8 @@ game_data = {
                 "ticket": "Define approved network ports",
                 "priority": "HIGH",
                 "lesson": "A LIST holds items in order inside square brackets [ ]. "
-                          "MISSION: Define the open network ports. Create a list called "
-                          "ports containing 80 and 443.",
+                          "MISSION: The network audit approved web ports 80 and 443, in that order. "
+                          "Choose the list assignment that records exactly those two numeric ports.",
                 "broken_code": None,
                 "expected": "ports = [80, 443]",
                 "hint": "Square brackets [ ] with a comma between items.",
@@ -179,8 +193,9 @@ game_data = {
                 "ticket": "Patch administrator database value",
                 "priority": "CRITICAL",
                 "lesson": "A DICT stores key: value pairs. Change a value with dict['key'] = value. "
-                          "Text values need quotes. "
-                          "MISSION: Patch the admin account! Fix the line.",
+                          "Text values need quotes. MISSION: The database's admin record must contain "
+                          "the status word patched, not a reference to an undefined variable. Repair "
+                          "the update so the stored value is text.",
                 "broken_code": "database['admin'] = patched",
                 "expected": "database['admin'] = 'patched'",
                 "hint": "patched is text, so it needs quotes around it.",
@@ -189,7 +204,9 @@ game_data = {
                 "ticket": "Read the first approved port",
                 "priority": "HIGH",
                 "lesson": "Python lists start at index 0, so the first item is at index 0. "
-                          "MISSION: Fix this line so first_port gets the first item in ports.",
+                          "MISSION: The approved port list begins with the standard web port and "
+                          "keeps the secure web port second. The current lookup selects the second "
+                          "entry; change it to capture the first.",
                 "broken_code": "first_port = ports[1]",
                 "expected": "first_port = ports[0]",
                 "hint": "The first list item is at index 0.",
@@ -198,16 +215,20 @@ game_data = {
                 "ticket": "Repair user profile dictionary",
                 "priority": "HIGH",
                 "lesson": "Lists use [ ] but DICTIONARIES use curly braces { } with key: value. "
-                          "MISSION: The user profile was built with the wrong brackets! "
-                          "Fix the line.",
-                "broken_code": "user = ['role': 'guest']",
+                          "MISSION: The profile needs a named role field, so it must be a mapping, "
+                          "not a list. The account is a guest, not a 'guess'. Repair both the "
+                          "container syntax and the misspelled role value.",
+                "broken_code": "user = ['role': 'guess']",
                 "expected": "user = {'role': 'guest'}",
                 "hint": "Dictionaries use curly braces { }.",
                 "output": ["> running patch...", "> user profile parsed OK", "> role policy restored"]},
             5: {"mode": "BOSS",
                 "ticket": "Add the admin to active users",
                 "priority": "CRITICAL",
-                "lesson": "Write a script that creates an admin user dict, creates an empty active_users list, appends the user to the list, and prints the role.",
+                "objective": "Create an admin record, add it to active_users, then print its role.",
+                "lesson": "An incoming administrator must be represented by a role field. The active "
+                          "roster starts empty; add that account before reporting its role. Rebuild "
+                          "the statements in dependency order.",
                 "broken_code": None,
                 "scrambled_blocks": [
                     "print(user['role'])",
@@ -233,7 +254,9 @@ game_data = {
                 "priority": "HIGH",
                 "lesson": "A FUNCTION is reusable code named with def. "
                           "The def line must end with a colon. "
-                          "MISSION: The function will not run! Fix the line.",
+                          "MISSION: Recovery relies on a reusable routine named secure_system. "
+                          "Its header is almost valid, but Python cannot begin the function body "
+                          "yet. Repair the declaration.",
                 "broken_code": "def secure_system()",
                 "expected": "def secure_system():",
                 "hint": "Something is missing at the very end of the line.",
@@ -242,8 +265,8 @@ game_data = {
                 "ticket": "Define IP blocking function",
                 "priority": "MED",
                 "lesson": "Parameters go inside the brackets: def name(parameter): "
-                          "MISSION: Write the header of a function called block_ip "
-                          "that takes one parameter named ip_address.",
+                          "MISSION: The blocking routine must receive the suspicious address when "
+                          "called. Declare block_ip with the single input parameter ip_address.",
                 "broken_code": None,
                 "expected": "def block_ip(ip_address):",
                 "hint": "def function_name(parameter):",
@@ -253,7 +276,9 @@ game_data = {
                 "priority": "HIGH",
                 "lesson": "try / except catches errors so the program does not crash. "
                           "except ends with a colon too. "
-                          "MISSION: Fix the handler that catches a ZeroDivisionError.",
+                          "MISSION: The protected calculation can divide by zero. Its dedicated "
+                          "handler is present but syntactically incomplete; make the handler header "
+                          "valid so the exception can be caught.",
                 "broken_code": "except ZeroDivisionError",
                 "expected": "except ZeroDivisionError:",
                 "hint": "Every except line needs a colon at the end.",
@@ -262,8 +287,8 @@ game_data = {
                 "ticket": "Begin protected operation block",
                 "priority": "MED",
                 "lesson": "Risky code goes inside a try: block. If it fails, except: runs instead. "
-                          "MISSION: Begin an error-handling block. "
-                          "Write the line that starts a try block.",
+                          "MISSION: A recovery routine is about to run an operation that may fail. "
+                          "Add the header that opens Python's protected section.",
                 "broken_code": None,
                 "expected": "try:",
                 "hint": "The word try followed by a colon.",
@@ -271,7 +296,10 @@ game_data = {
             5: {"mode": "BOSS",
                 "ticket": "Complete secure error handling",
                 "priority": "CRITICAL",
-                "lesson": "Write a function called secure_system that tries to return True, but catches a ZeroDivisionError and returns False.",
+                "objective": "Rebuild secure_system: return True in try; catch ZeroDivisionError and return False.",
+                "lesson": "Reconstruct a recovery routine named secure_system. Its protected path "
+                          "returns True; if a ZeroDivisionError occurs, its handler returns False. "
+                          "Arrange the function and nested blocks in valid Python order.",
                 "broken_code": None,
                 "scrambled_blocks": [
                     " return False",
@@ -382,10 +410,10 @@ _challenge_modes = {
 }
 
 _speed_questions = {
-    1: "Set is_locked to the boolean True.",
-    2: "Repair the offline status check line.",
-    3: "This line reads the second item: first_port = ports[1]. Fix it to read the first.",
-    4: "Finish the ZeroDivisionError handler line.",
+    1: "The intrusion report says the lock is active. Set the status flag accordingly.",
+    2: "The monitor's offline branch is incomplete. Repair its condition header.",
+    3: "The secure web port is second in the approved list. Change the lookup to return the earlier port.",
+    4: "The division-by-zero recovery branch has an unfinished header. Make it valid Python.",
 }
 
 _task_reasons = {
@@ -400,7 +428,7 @@ _task_reasons = {
     (2, 4): ">= includes the threshold itself.",
     (2, 5): "Set the threat before checking it, then handle both outcomes.",
     (3, 1): "Lists keep ordered items in square brackets.",
-    (3, 2): "Define ports before adding and copying them.",
+    (3, 2): "The replacement status must be text, so quote the value.",
     (3, 3): "Python lists start at index 0, so ports[0] is first.",
     (3, 4): "Dictionaries pair keys and values inside { }.",
     (3, 5): "Create the user and list before appending and printing the role.",
@@ -443,11 +471,14 @@ for _level_id, _level in game_data[1].items():
             elif _exercise["mode"] == "ORDER":
                 _exercise["order_lines"] = list(_order_challenges[_level_id])
                 _exercise["expected_order"] = list(_exercise["order_lines"])
-                _exercise["order_goal"] = "Set agent, check admin, then grant access."
+                _exercise["order_goal"] = (
+                    "The identity must be known before access is compared or granted."
+                )
                 _exercise["ticket"] = "Order the security procedure"
                 _exercise["lesson"] = (
-                    "Assign a value before checking it. Use == to compare the agent "
-                    "name, then run the matching access action."
+                    "The access log must identify the operator before evaluating the "
+                    "admin check. The grant should only run when that check succeeds; "
+                    "reorder the lines to make the procedure safe."
                 )
             elif _exercise["mode"] == "SPEED":
                 _exercise["question"] = _speed_questions[_level_id]
