@@ -27,7 +27,6 @@ from settings import (
     MAX_INPUT,
     MISSION_BUTTON_RECT,
     MISSION_LIBRARY_BUTTON_RECT,
-    MISSION_SETTINGS_BUTTON_RECT,
     MENU_BUTTON_RECT,
     MASTER_BUTTON_RECT,
     PINK,
@@ -80,7 +79,7 @@ last_comms_message = ""
 takeover_tooltip_seen = False
 takeover_tooltip_timer = 0
 settings_open = False
-takeover_percent = 0
+rogue_ai_takeover = 0
 completed_exercises = set()
 played_levels = set()
 campaign_progress_loaded = False
@@ -241,7 +240,7 @@ def start_apply():
 
 def begin_game(mode):
     global current_preset, current_level, current_exercise, play_mode, mode_selection, master_replay
-    global takeover_percent, streak, score, xp
+    global rogue_ai_takeover, streak, score, xp
     global roadmap_selection
     load_campaign_progress()
     current_preset = sorted_ids(game_data)[0]
@@ -250,7 +249,7 @@ def begin_game(mode):
     roadmap_selection = current_level
     play_mode = mode
     master_replay = False
-    takeover_percent = 0
+    rogue_ai_takeover = 0
     streak = 0
     score = 0
     xp = 0
@@ -620,11 +619,11 @@ def reset_current_level_progress():
 
 
 def restart_current_level():
-    global current_exercise, takeover_percent, streak, combo_popup_timer
+    global current_exercise, rogue_ai_takeover, streak, combo_popup_timer
     global combo_popup_text, dialogue_queue, active_dialogue, particles, floating_texts
     global answer_pending
     current_exercise = sorted_ids(get_level())[0]
-    takeover_percent = 0
+    rogue_ai_takeover = 0
     streak = 0
     combo_popup_timer = 0
     combo_popup_text = ""
@@ -638,7 +637,7 @@ def restart_current_level():
 
 
 def return_to_roadmap():
-    global current_exercise, takeover_percent, answer_pending, active_dialogue, dialogue_queue
+    global current_exercise, rogue_ai_takeover, answer_pending, active_dialogue, dialogue_queue
     current_exercise = next(
         (
             exercise_id for exercise_id in sorted_ids(get_level())
@@ -646,7 +645,7 @@ def return_to_roadmap():
         ),
         sorted_ids(get_level())[0],
     )
-    takeover_percent = 0
+    rogue_ai_takeover = 0
     answer_pending = False
     active_dialogue = None
     dialogue_queue = []
@@ -726,7 +725,7 @@ def append_console_line(text, color, animated=False, delay=2):
 
 
 def submit_boss_line():
-    global boss_line_index, boss_player_input, boss_typed_lines, attempts, takeover_percent
+    global boss_line_index, boss_player_input, boss_typed_lines, attempts, rogue_ai_takeover
     global streak, shake, flash, flash_color, msg, msg_color, feedback_timer
     global glitch_lines, glitch_timer, solution_revealed
     exercise = get_exercise()
@@ -750,7 +749,7 @@ def submit_boss_line():
         return
 
     if play_mode == "MISSION":
-        takeover_percent = min(100, takeover_percent + 10)
+        rogue_ai_takeover = min(100, rogue_ai_takeover + 10)
     streak = 0
     attempts += 1
     error_text = f"SyntaxError: expected line {boss_line_index + 1}"
@@ -774,8 +773,8 @@ def submit_boss_line():
     glitch_timer = 0 if reduce_effects else 5
     boss_player_input = ""
     if sound_manager and play_mode == "MISSION":
-        sound_manager.update_alarm(takeover_percent)
-    if play_mode == "MISSION" and takeover_percent >= 100:
+        sound_manager.update_alarm(rogue_ai_takeover)
+    if play_mode == "MISSION" and rogue_ai_takeover >= 100:
         set_state("GAMEOVER_LOSS")
 
 
@@ -783,7 +782,7 @@ def submit_answer(timed_out=False):
     global attempts, shake, flash, flash_color, msg, msg_color, glitch_timer, glitch_lines
     global answer_pending, pending_state, pending_state_timer
     global milestones_seen, milestone_banner, milestone_banner_timer, milestone_queue
-    global streak, score, xp, completed_levels, combo_popup_timer, combo_popup_text, takeover_percent
+    global streak, score, xp, completed_levels, combo_popup_timer, combo_popup_text, rogue_ai_takeover
     global speed_timer_frames, shake, reduce_effects, unlock_animation_timer, solution_revealed
     global feedback_timer
     mode = get_exercise()["mode"]
@@ -807,7 +806,7 @@ def submit_answer(timed_out=False):
         submitted = order_items if mode == "ORDER" else get_exercise()["options"][choice_index]
         append_console_line(f">>> {submitted}", GREEN)
     if answer_correct:
-        takeover_percent = max(0, takeover_percent - 15)
+        rogue_ai_takeover = max(0, rogue_ai_takeover - 15)
         completed_exercises.add((current_level, current_exercise))
         streak += 1
         reward = 100 + max(0, streak - 1) * 25
@@ -872,7 +871,7 @@ def submit_answer(timed_out=False):
         })
     else:
         if play_mode == "MISSION":
-            takeover_percent = min(100, takeover_percent + 10)
+            rogue_ai_takeover = min(100, rogue_ai_takeover + 10)
         streak = 0
         if play_mode == "TRAINING":
             error_text = "Try again. Check the example or press HINT."
@@ -909,8 +908,8 @@ def submit_answer(timed_out=False):
         ]
         glitch_timer = 0 if reduce_effects or play_mode == "TRAINING" else 5
         if sound_manager and play_mode == "MISSION":
-            sound_manager.update_alarm(takeover_percent)
-        if play_mode == "MISSION" and takeover_percent >= 100:
+            sound_manager.update_alarm(rogue_ai_takeover)
+        if play_mode == "MISSION" and rogue_ai_takeover >= 100:
             answer_pending = False
             set_state("GAMEOVER_LOSS")
 
@@ -979,7 +978,7 @@ def update_effects():
     if takeover_tooltip_timer > 0:
         takeover_tooltip_timer -= 1
     if sound_manager:
-        sound_manager.update_alarm(takeover_percent)
+        sound_manager.update_alarm(rogue_ai_takeover)
     if state == "APPLY" and get_exercise()["mode"] == "SPEED" and speed_timer_frames > 0:
         speed_timer_frames -= 1
         if speed_timer_frames == 0:
@@ -1059,15 +1058,16 @@ def handle_key(event):
         handle_escape()
         return
 
-    if state == "APPLY" and event.key == pygame.K_F3:
+    if state in ("APPLY", "MODE_SELECT") and event.key == pygame.K_F3:
         settings_open = not settings_open
         return
     if state == "STORY":
         set_state("MODE_SELECT")
         return
 
-    if event.key == pygame.K_m and state not in ("MODE_SELECT", "ROADMAP") and (
-        state != "APPLY" or control_pressed or settings_open
+    if event.key == pygame.K_m and (
+        (state not in ("MODE_SELECT", "ROADMAP") and (state != "APPLY" or control_pressed or settings_open))
+        or (state == "MODE_SELECT" and settings_open)
     ):
         if sound_manager:
             sound_manager.toggle_mute()
@@ -1111,7 +1111,11 @@ def handle_key(event):
     is_enter = event.key in (pygame.K_RETURN, pygame.K_KP_ENTER)
 
     if state == "MODE_SELECT":
-        if event.key in (pygame.K_4, pygame.K_KP4):
+        if event.key == pygame.K_F1:
+            begin_game("MISSION")
+        elif event.key == pygame.K_F2:
+            open_concept_library()
+        elif event.key in (pygame.K_4, pygame.K_KP4):
             open_concept_library()
         elif event.key in (pygame.K_1, pygame.K_KP1):
             begin_game("TRAINING")
@@ -1300,7 +1304,7 @@ def handle_key(event):
 
 def handle_event(event):
     global current_preset, current_level, current_exercise, menu_button_hover
-    global takeover_percent, streak, xp
+    global rogue_ai_takeover, streak, xp
     global hovered_button, selected_concept, settings_open, roadmap_selection, roadmap_notice
     if event.type == pygame.MOUSEMOTION:
         display = pygame.display.get_surface()
@@ -1322,7 +1326,6 @@ def handle_event(event):
             "concept_back": CONCEPT_BACK_BUTTON_RECT,
             "loss_retry": LOSS_RETRY_BUTTON_RECT,
             "loss_roadmap": LOSS_ROADMAP_BUTTON_RECT,
-            "settings": MISSION_SETTINGS_BUTTON_RECT,
         }
         concept_row = pygame.Rect(CONCEPT_LIST_RECT)
         concept_row_index = next(
@@ -1354,7 +1357,6 @@ def handle_event(event):
                     )
                     or (state == "CONCEPT_LIBRARY" and name in ("concept_try", "concept_back"))
                     or (state == "GAMEOVER_LOSS" and name in ("loss_retry", "loss_roadmap"))
-                    or (state == "APPLY" and name == "settings")
                 )
             ),
             "",
@@ -1406,8 +1408,6 @@ def handle_event(event):
         position = screen_to_canvas(event.pos, window_size)
         if state == "APPLY" and settings_open:
             settings_open = False
-        elif state == "APPLY" and pygame.Rect(MISSION_SETTINGS_BUTTON_RECT).collidepoint(position):
-            settings_open = True
         elif state == "MODE_SELECT" and pygame.Rect(LIBRARY_BUTTON_RECT).collidepoint(position):
             open_concept_library()
         elif state == "MODE_SELECT" and pygame.Rect(TRAINING_BUTTON_RECT).collidepoint(position):
@@ -1495,7 +1495,7 @@ def handle_event(event):
             current_preset = 1
             current_level = 1
             current_exercise = 1
-            takeover_percent = 0
+            rogue_ai_takeover = 0
             streak = 0
             xp = 0
             reset_campaign_progress()

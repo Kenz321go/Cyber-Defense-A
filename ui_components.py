@@ -7,7 +7,7 @@ import pygame
 import game_engine as engine
 from game_engine import is_last_exercise_of_level, sorted_ids
 from missions import game_data
-from settings import BG, CYAN, DIM, GREEN, H, PANEL, W, WHITE
+from settings import BG, CYAN, DIM, GREEN, H, PANEL, RED, W, WHITE, YELLOW
 
 _BACKGROUND_STATIC = None
 _CONTINENTS = (
@@ -42,6 +42,7 @@ def _panel_fill(size, fill):
 def init_fonts():
     """Monospace fonts so typed code lines up nicely."""
     names = "couriernew,courier,dejavusansmono,consolas,monospace"
+    engine.fonts["xs"] = pygame.font.SysFont(names, 9, bold=True)
     engine.fonts["s"] = pygame.font.SysFont(names, 12, bold=True)
     engine.fonts["m"] = pygame.font.SysFont(names, 14, bold=True)
     engine.fonts["l"] = pygame.font.SysFont(names, 20, bold=True)
@@ -217,6 +218,44 @@ def draw_segmented_bar(surf, rect, percent, segments=20, color=CYAN):
             max(1, rect.height - 4),
         )
         pygame.draw.rect(surf, color if index < filled else (6, 23, 39), segment)
+
+
+def draw_mission_header(surf, mission, progress, takeover):
+    pygame.draw.rect(surf, (2, 8, 19), pygame.Rect(0, 0, W, 63))
+    pygame.draw.line(surf, (18, 68, 96), (0, 63), (W, 63), 1)
+
+    progress = max(0, min(100, round(progress)))
+    takeover = max(0, min(100, round(takeover)))
+    draw_text(surf, f"PROGRESS {progress}%", 8, 2, CYAN, "s")
+    draw_segmented_bar(surf, pygame.Rect(8, 18, 198, 9), progress, color=CYAN)
+
+    takeover_label = f"ROGUE AI TAKEOVER {takeover}%"
+    takeover_image = engine.fonts["s"].render(takeover_label, False, RED)
+    right_margin = 8
+    takeover_x = surf.get_width() - right_margin - takeover_image.get_width()
+    surf.blit(takeover_image, (takeover_x, 2))
+    takeover_bar = pygame.Rect(
+        surf.get_width() - right_margin - 180,
+        18,
+        180,
+        9,
+    )
+    draw_segmented_bar(surf, takeover_bar, takeover, color=RED)
+
+    ticket = (
+        f"TICKET #{mission['id']} [{mission['priority']}] "
+        f"{mission['title']}"
+    )
+    ticket_size = "m" if engine.fonts["m"].size(ticket)[0] <= W - 24 else "s"
+    ticket_image = engine.fonts[ticket_size].render(ticket, False, YELLOW)
+    ticket_rect = pygame.Rect(8, 36, W - 16, 24)
+    pygame.draw.rect(surf, (4, 15, 29), ticket_rect)
+    pygame.draw.rect(surf, YELLOW, ticket_rect, 1)
+    surf.blit(
+        ticket_image,
+        (ticket_rect.centerx - ticket_image.get_width() // 2,
+         ticket_rect.centery - ticket_image.get_height() // 2),
+    )
 
 
 def draw_header(surf, label, color):

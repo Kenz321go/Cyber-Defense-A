@@ -8,6 +8,9 @@
 #   - Level dicts hold a "title" (string) plus integer keys 1..5 (exercises).
 #   - Exercise dict keys:
 #       "mode"        : WRITE, DEBUG, CHOOSE, ORDER, SPEED, or BOSS
+#       "id"          : stable ticket number
+#       "title"       : ticket title
+#       "objective"   : player-facing mission description
 #       "ticket"      : short task label (maximum 60 characters)
 #       "priority"    : LOW, MED, HIGH, or CRITICAL
 #       "lesson"      : full teaching text for the F1 briefing
@@ -371,13 +374,10 @@ _challenge_modes = {
     (1, 1): "CHOOSE",
     (1, 2): "ORDER",
     (1, 3): "SPEED",
-    (2, 2): "ORDER",
     (2, 3): "SPEED",
     (3, 1): "CHOOSE",
-    (3, 2): "ORDER",
     (3, 3): "SPEED",
     (4, 1): "CHOOSE",
-    (4, 2): "ORDER",
     (4, 3): "SPEED",
 }
 
@@ -417,23 +417,6 @@ _order_challenges = {
         "if agent == 'admin':",
         "print('Access Granted')",
     ],
-    2: [
-        "attempts = 0",
-        "attempts += 1",
-        "if attempts > 0:",
-    ],
-    3: [
-        "ports = [80, 443]",
-        "ports.append(8080)",
-        "approved_ports = ports",
-    ],
-    4: [
-        "def secure_system():",
-        "    try:",
-        "        return True",
-        "    except ZeroDivisionError:",
-        "        return False",
-    ],
 }
 
 for _level_id, _level in game_data[1].items():
@@ -460,21 +443,28 @@ for _level_id, _level in game_data[1].items():
             elif _exercise["mode"] == "ORDER":
                 _exercise["order_lines"] = list(_order_challenges[_level_id])
                 _exercise["expected_order"] = list(_exercise["order_lines"])
-                _exercise["order_goal"] = {
-                    1: "Set agent, check admin, then grant access.",
-                    2: "Create attempts, update it, then check it.",
-                    3: "Create ports, add one, then copy the list.",
-                    4: "Define, try, return, then handle the error.",
-                }[_level_id]
+                _exercise["order_goal"] = "Set agent, check admin, then grant access."
                 _exercise["ticket"] = "Order the security procedure"
-                _exercise["lesson"] = {
-                    1: (
-                        "Assign a value before checking it. Use == to compare the agent "
-                        "name, then run the matching access action."
-                    ),
-                    2: "Arrange the related Python statements into a secure sequence.",
-                    3: "Arrange the related Python statements into a secure sequence.",
-                    4: "Arrange the related Python statements into a secure sequence.",
-                }[_level_id]
+                _exercise["lesson"] = (
+                    "Assign a value before checking it. Use == to compare the agent "
+                    "name, then run the matching access action."
+                )
             elif _exercise["mode"] == "SPEED":
                 _exercise["question"] = _speed_questions[_level_id]
+
+for _preset_id, _preset in game_data.items():
+    for _level_id, _level in _preset.items():
+        if not isinstance(_level_id, int):
+            continue
+        for _exercise_id, _exercise in _level.items():
+            if not isinstance(_exercise_id, int):
+                continue
+            lesson = _exercise["lesson"]
+            objective = lesson.partition("MISSION:")[2] or lesson
+            objective = objective.split(" BOSS CHALLENGE:", 1)[0].strip()
+            _exercise.setdefault(
+                "id",
+                _preset_id * 1000 + _level_id * 10 + _exercise_id,
+            )
+            _exercise.setdefault("title", _exercise["ticket"])
+            _exercise.setdefault("objective", objective)
