@@ -44,6 +44,7 @@ def init_fonts():
     names = "couriernew,courier,dejavusansmono,consolas,monospace"
     engine.fonts["xs"] = pygame.font.SysFont(names, 9, bold=True)
     engine.fonts["xxs"] = pygame.font.SysFont(names, 7, bold=True)
+    engine.fonts["xsm"] = pygame.font.SysFont(names, 11, bold=True) 
     engine.fonts["s"] = pygame.font.SysFont(names, 12, bold=True)
     engine.fonts["m"] = pygame.font.SysFont(names, 14, bold=True)
     engine.fonts["l"] = pygame.font.SysFont(names, 20, bold=True)
