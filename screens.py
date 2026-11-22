@@ -617,7 +617,7 @@ def draw_boss_apply(surf, exercise):
     for index, line in enumerate(wrap_text(exercise["objective"], "s", W - 40)[:3]):
         draw_text(surf, line, 17, 87 + index * 12, WHITE, "s")
 
-    evidence_panel = pygame.Rect(8, 137, 156, 181)
+    evidence_panel = pygame.Rect(8, 137, 200, 181)
     draw_panel(surf, evidence_panel, "", YELLOW, (3, 11, 24))
     evidence_lines = (
         exercise["correct_script"]
@@ -625,16 +625,15 @@ def draw_boss_apply(surf, exercise):
         else exercise["scrambled_blocks"]
     )
     evidence_color = GREEN if engine.solution_revealed else WHITE
-    evidence_font = "xxs" if engine.solution_revealed else "s"
-    evidence_line_height = 12 if engine.solution_revealed else 14
-    evidence_title = "EVIDENCE // SOLUTION" if engine.solution_revealed else "EVIDENCE // SCRAMBLED"
-    draw_text(surf, evidence_title, 15, 141, YELLOW, "xs")
+    evidence_font = "xxs" if engine.solution_revealed else "xsm"
+    evidence_line_height = 11 if engine.solution_revealed else 14
+    evidence_title = "EVIDENCE // SOLUTION" if engine.solution_revealed else "EVIDENCE // CORRUPTED"
+    draw_text(surf, evidence_title, 15, 141, YELLOW, "s")
     line_y = 158
-    code_x = 34
+    code_x = 16
     code_width = evidence_panel.right - 8 - code_x
     for line_index, code_line in enumerate(evidence_lines):
         wrapped_lines = wrap_code_line(code_line, evidence_font, code_width)
-        draw_text(surf, f"{line_index + 1}.", 14, line_y, YELLOW, "s")
         for wrapped_index, wrapped_line in enumerate(wrapped_lines):
             draw_text(
                 surf,
@@ -646,16 +645,16 @@ def draw_boss_apply(surf, exercise):
             )
         line_y += max(1, len(wrapped_lines)) * evidence_line_height + 2
 
-    terminal_panel = pygame.Rect(170, 137, 272, 181)
-    draw_panel(surf, terminal_panel, "mainframe.py // LIVE SCRIPT", CYAN, (1, 7, 17))
+    terminal_panel = pygame.Rect(214, 137, 227, 181)
+    draw_panel(surf, terminal_panel, "mainframe.py", CYAN, (1, 7, 17))
     for index, line in enumerate(engine.boss_typed_lines):
-        draw_text(surf, line, 181, 161 + index * 22, GREEN, "s")
+        draw_text(surf, line, 224, 161 + index * 22, GREEN, "s")
 
-    input_panel = pygame.Rect(178, 266, 256, 29)
+    input_panel = pygame.Rect(222, 266, 190, 29)
     pygame.draw.rect(surf, (3, 16, 27), input_panel)
     pygame.draw.rect(surf, CYAN, input_panel, 1)
-    draw_text(surf, ">>>", 185, 274, CYAN, "s")
-    input_x, input_y = 210, 274
+    draw_text(surf, ">>>", 229, 274, CYAN, "s")
+    input_x, input_y = 254, 274
     draw_text(surf, engine.boss_player_input, input_x, input_y, WHITE, "s")
     if (pygame.time.get_ticks() // 500) % 2 == 0:
         cursor_prefix = engine.boss_player_input[:engine.cursor_pos]
@@ -668,7 +667,7 @@ def draw_boss_apply(surf, exercise):
         for index, line in enumerate(status_lines):
             draw_text(surf, line, 24, start_y + index * 12, engine.msg_color, "s")
     elif engine.boss_line_index < exercise_count:
-        draw_text(surf, "TYPE THIS LINE, THEN PRESS ENTER", 181, 301, DIM, "s")
+        draw_text(surf, "PRESS ENTER FOR NEXT LINE", 230, 301, DIM, "xsm")
 
     draw_button(
         surf,

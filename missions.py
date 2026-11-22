@@ -34,9 +34,7 @@ game_data = {
                 "ticket": "Assign security clearance",
                 "priority": "HIGH",
                 "lesson": "A VARIABLE is a named box that stores data. Use = to put a value inside. "
-                          "MISSION: The firewall's clearance field is empty. Policy requires a numeric "
-                          "level of ten in the existing security setting. Choose the assignment that "
-                          "stores this policy value correctly.",
+                          "MISSION: Firewall security level is currently unset. Set the numeric policy level to 10.",
                 "broken_code": None,
                 "expected": "security = 10",
                 "hint": "name = value   (one = sign, spaces around it)",
@@ -56,8 +54,8 @@ game_data = {
                 "ticket": "Set system lock status",
                 "priority": "HIGH",
                 "lesson": "A bool is either True or False (capital first letter, no quotes). "
-                          "MISSION: The intrusion report says the lock flag is active, not inactive. "
-                          "Update the system's is_locked setting with the correct Boolean value.",
+                          "MISSION: Intrusion detected—the lock flag is active, not inactive. Set the boolean state to reflect this."
+                          "(Variables: system, is_locked, Intrusion)",
                 "broken_code": None,
                 "expected": "is_locked = True",
                 "hint": "is_locked = True   (capital T, no quotes)",
@@ -68,7 +66,7 @@ game_data = {
                 "lesson": "Quotes turn a value into text (str). A float is a number with a decimal "
                           "point and NO quotes. MISSION: Telemetry expects a numeric speed for "
                           "calculations, but the displayed value is currently text. Repair the line "
-                          "so the stored value behaves as the decimal number one and a half.",
+                          "so the stored value behaves as the decimal number.",
                 "broken_code": "speed = '1.5'",
                 "expected": "speed = 1.5",
                 "hint": "Remove the quotes around 1.5 so it is a number.",
@@ -123,9 +121,9 @@ game_data = {
                 "ticket": "Block repeated login attempts",
                 "priority": "HIGH",
                 "lesson": "Comparison operators: > < >= <= == !=   An if line ends with a colon. "
-                          "MISSION: The alert policy activates only after the third failed login; "
-                          "three attempts is still allowed. Write the condition that detects the "
-                          "first blocked attempt.",
+                          "MISSION: The system allows 3 login attempts. On the 4th attempt, the user is blocked. Write the condition that triggers the block. "
+                          "(Variables: system, user, attempts, blocked)"
+                          ,
                 "broken_code": None,
                 "expected": "if attempts > 3:",
                 "hint": "if attempts > 3:   (don't forget the colon)",
@@ -134,8 +132,7 @@ game_data = {
                 "ticket": "Restore offline status check",
                 "priority": "HIGH",
                 "lesson": "Every if line must END with a colon : so Python knows a block follows. "
-                          "MISSION: The monitor must enter its offline-response branch, but the "
-                          "condition is rejected before it can run. Repair the incomplete check.",
+                          "MISSION: The offline check is missing a crucial piece of Python syntax. Repair the incomplete if-statement.",
                 "broken_code": "if status == 'offline'",
                 "expected": "if status == 'offline':",
                 "hint": "Something is missing at the very end of the line.",
@@ -144,8 +141,8 @@ game_data = {
                 "ticket": "Enforce clearance threshold",
                 "priority": "MED",
                 "lesson": ">= means 'greater than or equal to'. "
-                          "MISSION: Entry policy sets tier three as the minimum: an agent at exactly "
-                          "three must be admitted too. Write the condition that enforces that boundary.",
+                          "MISSION: The minimum clearance tier is 3. Write a condition using the clearance variable to check if an agent should be admitted."
+                          "(Variables: agent, clearance, admitted)",
                 "broken_code": None,
                 "expected": "if clearance >= 3:",
                 "hint": "Use >= (greater sign first, then equals).",
@@ -204,9 +201,7 @@ game_data = {
                 "ticket": "Read the first approved port",
                 "priority": "HIGH",
                 "lesson": "Python lists start at index 0, so the first item is at index 0. "
-                          "MISSION: The approved port list begins with the standard web port and "
-                          "keeps the secure web port second. The current lookup selects the second "
-                          "entry; change it to capture the first.",
+                          "MISSION: The ports list holds approved network ports in order, starting with the primary web port. Currently ports[1] grabs the second item—update the index so first_port captures the first entry.",
                 "broken_code": "first_port = ports[1]",
                 "expected": "first_port = ports[0]",
                 "hint": "The first list item is at index 0.",
@@ -215,9 +210,7 @@ game_data = {
                 "ticket": "Repair user profile dictionary",
                 "priority": "HIGH",
                 "lesson": "Lists use [ ] but DICTIONARIES use curly braces { } with key: value. "
-                          "MISSION: The profile needs a named role field, so it must be a mapping, "
-                          "not a list. The account is a guest, not a 'guess'. Repair both the "
-                          "container syntax and the misspelled role value.",
+                          "MISSION: Corrupted guest profile detected. Inspect every character and restore valid dictionary syntax.",
                 "broken_code": "user = ['role': 'guess']",
                 "expected": "user = {'role': 'guest'}",
                 "hint": "Dictionaries use curly braces { }.",
@@ -276,9 +269,7 @@ game_data = {
                 "priority": "HIGH",
                 "lesson": "try / except catches errors so the program does not crash. "
                           "except ends with a colon too. "
-                          "MISSION: The protected calculation can divide by zero. Its dedicated "
-                          "handler is present but syntactically incomplete; make the handler header "
-                          "valid so the exception can be caught.",
+                          "MISSION: The protected calculation can divide by zero, but its handler header is incomplete. Fix the syntax to catch the exception.",
                 "broken_code": "except ZeroDivisionError",
                 "expected": "except ZeroDivisionError:",
                 "hint": "Every except line needs a colon at the end.",
@@ -410,10 +401,10 @@ _challenge_modes = {
 }
 
 _speed_questions = {
-    1: "The intrusion report says the lock is active. Set the status flag accordingly.",
-    2: "The monitor's offline branch is incomplete. Repair its condition header.",
-    3: "The secure web port is second in the approved list. Change the lookup to return the earlier port.",
-    4: "The division-by-zero recovery branch has an unfinished header. Make it valid Python.",
+    1: "",
+    2: "",
+    3: "",
+    4: "Make it valid Python syntax",
 }
 
 _task_reasons = {
